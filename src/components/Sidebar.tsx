@@ -9,7 +9,7 @@ const Sidebar = () => {
 	const [openCreateGroup, setOpenCreateGroup] = useState(false);
 
 	return (
-		<div className="w-120 h-screen fixed top-0 left-0 mt-20 bg-[#222E35] flex flex-col border-r border-[#222E35]">
+		<div className="w-[25rem] h-full bg-[#222E35] flex flex-col border-r border-[#222E35]">
 			{/* Search bar + icons */}
 			<div className="p-4 flex items-center gap-2">
 				<div className="relative flex-1">

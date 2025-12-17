@@ -49,7 +49,7 @@ function App() {
       <Header onLogout={handleLogout} />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <div className="flex-1 ml-100 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
           <ChatView />
         </div>
       </div>
