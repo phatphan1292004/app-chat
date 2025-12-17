@@ -103,7 +103,7 @@ const ChatView = () => {
 	return (
 		<div className="flex flex-col h-full bg-white">
 			{/* Chat Header */}
-			<div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+			<div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
 				<div className="flex items-center gap-3">
 					<div className="w-12 h-12 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold mr-3">
 						PP
@@ -212,25 +212,29 @@ const ChatView = () => {
 			</div>
 
 			{/* Input Area */}
-			<div className="bg-white border-t border-gray-200 px-6 py-4">
-				<div className="flex items-center gap-3">
+			<div className="bg-white border-t border-gray-200">
+				{/* Hàng trên: các nút chức năng */}
+				<div className="flex items-center gap-3 px-4 py-1 border-b border-gray-200">
 					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
 						<FaPaperclip size={20} />
 					</button>
 					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
 						<FaImage size={20} />
 					</button>
+					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
+						<FaSmile size={20} />
+					</button>
+				</div>
+				{/* Hàng dưới: input và gửi */}
+				<div className="flex items-center gap-3 py-2 pl-2 pr-4">
 					<input
 						type="text"
 						value={inputValue}
 						onChange={(e) => setInputValue(e.target.value)}
 						onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
 						placeholder="Nhập tin nhắn tới 10d Frontend"
-						className="flex-1 px-4 py-2 rounded-full bg-gray-100 text-black placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400"
+						className="flex-1 px-4 py-2 rounded-full text-black placeholder-gray-500 focus:outline-none"
 					/>
-					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
-						<FaSmile size={20} />
-					</button>
 					<button
 						onClick={handleSendMessage}
 						className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition font-semibold text-sm"
