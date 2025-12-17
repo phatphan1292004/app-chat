@@ -4,6 +4,7 @@ import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import { chatSocket } from "./services/chatSocket";
 import type { SocketResponse } from "./types/socket";
+import ChatView from "./components/ChatView";
 
 function App() {
   const [logged, setLogged] = useState(false);
@@ -46,19 +47,10 @@ function App() {
   return (
     <div className="flex h-screen flex-col">
       <Header />
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <div className="flex-1 bg-[#111b21] p-6 text-white">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-xl font-bold">Chat screen</h1>
-            <button
-              onClick={handleLogout}
-              className="rounded bg-red-600 px-4 py-2 font-semibold hover:bg-red-700"
-            >
-              Đăng xuất
-            </button>
-          </div>
-          {/* Nội dung chat */}
+        <div className="flex-1 ml-100 overflow-hidden">
+          <ChatView />
         </div>
       </div>
     </div>
