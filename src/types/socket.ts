@@ -10,7 +10,7 @@ export interface LoginSuccess {
 }
 
 export interface ErrorPayload {
-  message: string;
+  message?: string;
 }
 
 export type SocketSuccessMap = {
@@ -24,7 +24,8 @@ export type SocketSuccessMap = {
 export type SocketError = {
   status: "error";
   event: SocketEvent;
-  data: ErrorPayload;
+  data?: ErrorPayload;
+  mes?: string;
 };
 
 export type SocketSuccess<E extends SocketEvent> = {

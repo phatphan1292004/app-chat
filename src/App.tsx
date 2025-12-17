@@ -1,59 +1,46 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Auth from "./components/Auth";
-import Header from "./components/Header";
-import Sidebar from "./components/Sidebar";
-import { chatSocket } from "./services/chatSocket";
-import type { SocketResponse } from "./types/socket";
-import ChatView from "./components/ChatView";
+import ChatApp from "./pages/ChatApp";
+import { useAuthSocket } from "./hooks/useAuthSocket";
 
 function App() {
-  const [logged, setLogged] = useState(false);
-
-  useEffect(() => {
-    chatSocket.connect((res: SocketResponse) => {
-      console.log("📩 SOCKET:", res);
-
-      if (res.status === "error") {
-        console.error(res.data.message);
-        return;
-      }
-
-      if (res.event === "LOGIN" || res.event === "RE_LOGIN") {
-        if (res.data?.RE_LOGIN_CODE) {
-          localStorage.setItem("relogin_code", res.data.RE_LOGIN_CODE);
-        }
-        setLogged(true);
-      }
-
-      if (res.event === "LOGOUT") {
-        setLogged(false);
-        localStorage.removeItem("relogin_code");
-        localStorage.removeItem("user");
-      }
-    });
-  }, []);
-
-  const handleLogout = () => {
-    if (chatSocket.isConnected()) {
-      chatSocket.send("LOGOUT", {});
-    }
-    setLogged(false);
-    localStorage.removeItem("relogin_code");
-    localStorage.removeItem("user");
-  };
-
-  if (!logged) return <Auth onLoginSuccess={() => setLogged(true)} />;
+  const { logged, logout } = useAuthSocket();
 
   return (
-    <div className="flex h-screen flex-col">
-      <Header onLogout={handleLogout} />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <div className="flex-1 overflow-hidden pl-100">
-          <ChatView />
-        </div>
-      </div>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/login"
+          element={
+            logged ? (
+              <Navigate to="/chat" />
+            ) : (
+              <Auth onLoginSuccess={() => {}} />
+            )
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            logged ? (
+              <Navigate to="/chat" />
+            ) : (
+              <Auth onLoginSuccess={() => (window.location.href = "/login")} />
+            )
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            logged ? <ChatApp onLogout={logout} /> : <Navigate to="/login" />
+          }
+        />
+        <Route
+          path="*"
+          element={<Navigate to={logged ? "/chat" : "/login"} />}
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

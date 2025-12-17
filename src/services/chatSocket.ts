@@ -1,27 +1,22 @@
-import type { SocketResponse, SocketEvent } from "../types/socket";
+import type { SocketEvent, SocketResponse } from "../types/socket";
 
 type SocketCallback = (res: SocketResponse) => void;
 
 class ChatSocket {
   private ws: WebSocket | null = null;
-  private callback: SocketCallback | null = null;
+  private callbacks = new Set<SocketCallback>();
+  private pendingMessages: string[] = [];
 
-  connect(cb: SocketCallback) {
-    this.callback = cb;
+  connect() {
+    if (this.ws) return;
 
-    if (
-      this.ws &&
-      (this.ws.readyState === WebSocket.OPEN ||
-        this.ws.readyState === WebSocket.CONNECTING)
-    ) {
-      return;
-    }
-
-    const wsUrl = import.meta.env.WS_URL || "wss://chat.longapp.site/chat/chat";
-    this.ws = new WebSocket(wsUrl);
+    this.ws = new WebSocket("wss://chat.longapp.site/chat/chat");
 
     this.ws.onopen = () => {
       console.log("✅ WebSocket connected");
+
+      this.pendingMessages.forEach((m) => this.ws!.send(m));
+      this.pendingMessages = [];
 
       const user = localStorage.getItem("user");
       const code = localStorage.getItem("relogin_code");
@@ -30,9 +25,9 @@ class ChatSocket {
       }
     };
 
-    this.ws.onmessage = (e: MessageEvent<string>) => {
+    this.ws.onmessage = (e) => {
       const data = JSON.parse(e.data) as SocketResponse;
-      this.callback?.(data);
+      this.callbacks.forEach((cb) => cb(data));
     };
 
     this.ws.onclose = () => {
@@ -41,11 +36,11 @@ class ChatSocket {
     };
   }
 
-  reconnect() {
-    if (this.ws) {
-      this.ws.close();
-    }
-    this.connect(this.callback!);
+  onMessage(cb: SocketCallback): () => void {
+    this.callbacks.add(cb);
+    return () => {
+      this.callbacks.delete(cb);
+    };
   }
 
   isConnected() {
@@ -53,13 +48,18 @@ class ChatSocket {
   }
 
   send<E extends SocketEvent>(event: E, data: unknown) {
-    if (!this.isConnected()) {
-      console.warn("⚠️ WS not connected, connecting...");
-      this.connect(this.callback!);
+    const payload = JSON.stringify({
+      action: "onchat",
+      data: { event, data },
+    });
+
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      this.pendingMessages.push(payload);
+      this.connect();
       return;
     }
 
-    this.ws!.send(JSON.stringify({ action: "onchat", data: { event, data } }));
+    this.ws.send(payload);
   }
 }
 
