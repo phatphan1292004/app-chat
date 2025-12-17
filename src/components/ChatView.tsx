@@ -8,43 +8,66 @@ interface Message {
 	content: string;
 	timestamp: string;
 	isOwn: boolean;
+	reactions?: Record<string, number>;
 }
 
+const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+const INITIAL_MESSAGES: Message[] = [
+	{ id: 1, sender: "Phat Phan", avatar: "PP", content: "Hello", timestamp: "23:24", isOwn: false },
+	{ id: 2, sender: "You", avatar: "Y", content: "Hello Phat Phan", timestamp: "23:24", isOwn: true },
+	{ id: 3, sender: "Phat Phan", avatar: "PP", content: "Làm bài đi", timestamp: "23:24", isOwn: false },
+	{ id: 4, sender: "Phat Phan", avatar: "PP", content: "ok bạn nhé", timestamp: "23:25", isOwn: false },
+];
+
+interface ActionButtonProps {
+	icon: React.ComponentType<{ size: number }>;
+	title: string;
+	onClick?: (e: React.MouseEvent) => void;
+}
+
+const ActionButton: React.FC<ActionButtonProps> = ({ icon: Icon, title, onClick }) => (
+	<button 
+		className="p-1.5 hover:bg-gray-100 rounded-full text-gray-600 transition"
+		title={title}
+		onClick={onClick}
+	>
+		<Icon size={14} />
+	</button>
+);
+
+interface MenuDropdownProps {
+	isOwn: boolean;
+}
+
+const MenuDropdown: React.FC<MenuDropdownProps> = ({ isOwn }) => (
+	<div className={`absolute top-8 ${isOwn ? "right-0" : "left-0"} bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-max`}>
+		<MenuItem label="Copy tin nhắn" />
+		<MenuItem label="Ghim tin nhắn" />
+		<MenuItem label="Đánh dấu tin nhắn" />
+		<MenuItem label="Chọn nhiều tin nhắn" />
+		<hr className="my-1" />
+		<MenuItem label="Xem chi tiết" />
+		<MenuItem label="Tuỳ chọn khác" showArrow />
+		<hr className="my-1" />
+		<MenuItem label="Xóa chi ở phía tôi" isDanger />
+	</div>
+);
+
+interface MenuItemProps {
+	label: string;
+	isDanger?: boolean;
+	showArrow?: boolean;
+}
+
+const MenuItem: React.FC<MenuItemProps> = ({ label, isDanger, showArrow }) => (
+	<button className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm ${isDanger ? "text-red-600" : "text-gray-700"}`}>
+		{label}
+		{showArrow && <span className="ml-auto text-gray-400">›</span>}
+	</button>
+);
+
 const ChatView = () => {
-	const [messages, setMessages] = useState<Message[]>([
-		{
-			id: 1,
-			sender: "Phat Phan",
-			avatar: "PP",
-			content: "Hello",
-			timestamp: "23:24",
-			isOwn: false,
-		},
-		{
-			id: 2,
-			sender: "You",
-			avatar: "Y",
-			content: "Hello Phat Phan",
-			timestamp: "23:24",
-			isOwn: true,
-		},
-		{
-			id: 3,
-			sender: "Phat Phan",
-			avatar: "PP",
-			content: "Làm bài đi",
-			timestamp: "23:24",
-			isOwn: false,
-		},
-		{
-			id: 4,
-			sender: "Phat Phan",
-			avatar: "PP",
-			content: "ok bạn nhé",
-			timestamp: "23:25",
-			isOwn: false,
-		},
-	]);
+	const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
 	const [inputValue, setInputValue] = useState("");
 	const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
 	const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -58,10 +81,23 @@ const ChatView = () => {
 				content: inputValue,
 				timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
 				isOwn: true,
+				reactions: {},
 			};
 			setMessages([...messages, newMessage]);
 			setInputValue("");
 		}
+	};
+
+	const handleAddReaction = (messageId: number, emoji: string) => {
+		setMessages(messages.map(msg => {
+			if (msg.id === messageId) {
+				const reactions = msg.reactions || {};
+				reactions[emoji] = (reactions[emoji] || 0) + 1;
+				return { ...msg, reactions };
+			}
+			return msg;
+		}));
+		setHoveredMessageId(null);
 	};
 
 	return (
@@ -116,65 +152,52 @@ const ChatView = () => {
 								<div className={`max-w-xs ${message.isOwn ? "bg-blue-100 text-black border border-blue-200 shadow-md" : "bg-gray-100 text-black border border-gray-200 shadow-md"} px-4 py-2 rounded-lg`}>
 									{!message.isOwn && showAvatar && <p className="text-xs text-gray-600 mb-1 font-semibold">{message.sender}</p>}
 									<p className="text-sm">{message.content}</p>
+									
+									{/* Reactions Display */}
+									{message.reactions && Object.keys(message.reactions).length > 0 && (
+										<div className="flex gap-1 mt-2 flex-wrap">
+											{Object.entries(message.reactions).map(([emoji, count]) => (
+											<span key={emoji} className="bg-gray-200 rounded-full px-2 py-1 text-xs flex items-center gap-1 cursor-pointer hover:bg-gray-300">
+												{emoji} {count}
+											</span>
+											))}
+										</div>
+									)}
 								</div>
 							
 								{/* Message Actions */}
 								{isHovered && (
 									<>
+										{/* Emoji Picker */}
+										<div className={`absolute ${index < 2 ? "-bottom-12" : "-top-12"} ${message.isOwn ? "right-0" : "left-0"} bg-white border border-gray-200 rounded-full px-3 py-2 shadow-lg flex gap-2 z-20`}>
+											{EMOJIS.map(emoji => (
+												<button
+													key={emoji}
+													className="text-lg hover:scale-125 transition cursor-pointer"
+													onClick={() => handleAddReaction(message.id, emoji)}
+													title={emoji}
+												>
+													{emoji}
+												</button>
+											))}
+										</div>
+										
+										{/* Action Bar */}
 										<div className={`absolute top-0 ${message.isOwn ? "right-full mr-2" : "left-full ml-2"} flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-lg`}>
-											<button 
-												className="p-1.5 hover:bg-gray-100 rounded-full text-gray-600 transition"
-												title="Trả lời"
-											>
-												<FaReply size={14} />
-											</button>
-											<button 
-												className="p-1.5 hover:bg-gray-100 rounded-full text-gray-600 transition"
-												title="Chuyển tiếp"
-											>
-												<FaShare size={14} />
-											</button>
-											<button 
-												className="p-1.5 hover:bg-gray-100 rounded-full text-gray-600 transition"
+											<ActionButton icon={FaReply} title="Trả lời" />
+											<ActionButton icon={FaShare} title="Chuyển tiếp" />
+											<ActionButton 
+												icon={FaEllipsisV} 
 												title="Menu"
 												onClick={(e) => {
 													e.stopPropagation();
 													setOpenMenuId(openMenuId === message.id ? null : message.id);
 												}}
-											>
-												<FaEllipsisV size={14} />
-											</button>
+											/>
 										</div>
 										
 										{/* Dropdown Menu */}
-										{openMenuId === message.id && (
-											<div className={`absolute top-8 ${message.isOwn ? "right-0" : "left-0"} bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-max`}>
-												<button className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm">
-													📋 Copy tin nhắn
-												</button>
-												<button className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm">
-													📌 Ghim tin nhắn
-												</button>
-												<button className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm">
-													⭐ Đánh dấu tin nhắn
-												</button>
-												<button className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm">
-													✓ Chọn nhiều tin nhắn
-												</button>
-												<hr className="my-1" />
-												<button className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm">
-													ℹ️ Xem chi tiết
-												</button>
-												<button className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-gray-700 text-sm">
-													⋯ Tuỳ chọn khác
-													<span className="ml-auto text-gray-400">›</span>
-												</button>
-												<hr className="my-1" />
-												<button className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-red-600 text-sm">
-													🗑️ Xóa chi ở phía tôi
-												</button>
-											</div>
-										)}
+										{openMenuId === message.id && <MenuDropdown isOwn={message.isOwn} />}
 									</>
 								)}
 							</div>
