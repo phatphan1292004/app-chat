@@ -17,7 +17,8 @@ class ChatSocket {
       return;
     }
 
-    this.ws = new WebSocket("wss://chat.longapp.site/chat/chat");
+    const wsUrl = import.meta.env.WS_URL || "wss://chat.longapp.site/chat/chat";
+    this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
       console.log("✅ WebSocket connected");
