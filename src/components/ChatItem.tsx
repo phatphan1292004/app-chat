@@ -16,7 +16,7 @@ const ChatItem: React.FC<ChatItemProps> = ({ avatar, name, time, lastMessage }) 
           <span className="font-semibold text-xl text-white">{name}</span>
           <span className="text-sm text-gray-400">{time}</span>
         </div>
-        <div className="text-gray-400 text-lg truncate">{lastMessage}</div>
+        <div className="text-gray-400 text-[15px] truncate">{lastMessage}</div>
       </div>
     </div>
   );

@@ -9,9 +9,9 @@ const Sidebar = () => {
 	const [openCreateGroup, setOpenCreateGroup] = useState(false);
 
 	return (
-		<div className="w-120 h-screen fixed top-0 left-0 mt-20 bg-[#222E35] flex flex-col border-r border-[#222E35]">
+		<div className="w-100 h-screen fixed top-0 left-0 mt-20 bg-[#222E35] flex flex-col border-r border-[#222E35]">
 			{/* Search bar + icons */}
-			<div className="p-4 flex items-center gap-2">
+			<div className="p-4 flex items-center">
 				<div className="relative flex-1">
 					<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
 						<FaSearch size={20} />
@@ -19,20 +19,20 @@ const Sidebar = () => {
 					<input
 						type="text"
 						placeholder="Tìm kiếm"
-						className="w-full text-lg pl-11 pr-3 py-3 rounded-lg bg-[#2A3942] text-white placeholder-gray-400 focus:outline-none"
+						className="w-full text-lg pl-11 pr-3 py-2 rounded-lg bg-[#2A3942] text-white placeholder-gray-400 focus:outline-none"
 					/>
 				</div>
 				<button
-					className="ml-2 p-4 rounded hover:bg-[#2A3942] text-gray-300"
+					className="ml-2 p-3 rounded hover:bg-[#2A3942] text-gray-300"
 					onClick={() => setOpenAddFriend(true)}
 				>
-					<FaUserPlus size={20} />
+					<FaUserPlus size={18} />
 				</button>
 				<button
-					className="p-4 rounded hover:bg-[#2A3942] text-gray-300"
+					className="p-3 rounded hover:bg-[#2A3942] text-gray-300"
 					onClick={() => setOpenCreateGroup(true)}
 				>
-					<MdGroupAdd size={20} />
+					<MdGroupAdd size={18} />
 				</button>
 			</div>
 			{/* Chat list */}

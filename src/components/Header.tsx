@@ -14,7 +14,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 	};
 
 	return (
-		<div className="h-16 bg-[#222E35] flex items-center justify-between px-4 border-b border-[#222E35] select-none">
+		<div className="h-20 w-full bg-[#222E35] top-0 right-0 sticky flex items-center justify-between px-4 border-b border-[#222E35] select-none">
 			<div className="text-white font-bold text-xl">Chat App</div>
 			
 			<div className="relative">
