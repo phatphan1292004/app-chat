@@ -2,10 +2,15 @@ import { useEffect, useState } from "react";
 import { chatSocket } from "../services/chatSocket";
 import type { SocketResponse } from "../types/socket";
 
-export function useAuthSocket() {
-  const [logged, setLogged] = useState<boolean>(
-    !!localStorage.getItem("relogin_code")
-  );
+export interface UseAuthSocketResult {
+  logged: boolean;
+  logout: () => void;
+}
+
+export function useAuthSocket(): UseAuthSocketResult {
+  const [logged, setLogged] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem("relogin_code"));
+  });
 
   useEffect(() => {
     chatSocket.connect();
@@ -16,9 +21,12 @@ export function useAuthSocket() {
       if (res.status === "error") return;
 
       if (res.event === "LOGIN" || res.event === "RE_LOGIN") {
-        if (res.data?.RE_LOGIN_CODE) {
-          localStorage.setItem("relogin_code", res.data.RE_LOGIN_CODE);
+        const code = res.data?.RE_LOGIN_CODE;
+
+        if (typeof code === "string" && code.length > 0) {
+          localStorage.setItem("relogin_code", code);
         }
+
         setLogged(true);
       }
 
@@ -29,10 +37,12 @@ export function useAuthSocket() {
       }
     });
 
-    return off;
+    return () => {
+      off?.();
+    };
   }, []);
 
-  const logout = () => {
+  const logout = (): void => {
     chatSocket.send("LOGOUT", {});
     localStorage.removeItem("relogin_code");
     localStorage.removeItem("user");
@@ -40,5 +50,8 @@ export function useAuthSocket() {
     window.location.href = "/login";
   };
 
-  return { logged, logout };
+  return {
+    logged,
+    logout,
+  };
 }
