@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FaPhone, FaVideo, FaInfoCircle, FaSmile, FaPaperclip, FaImage, FaReply, FaShare, FaEllipsisV } from "react-icons/fa";
-
+import { IoMdSend } from 'react-icons/io'
 interface Message {
 	id: number;
 	sender: string;
@@ -101,9 +101,9 @@ const ChatView = () => {
 	};
 
 	return (
-		<div className="flex flex-col h-full bg-white">
+		<div className="flex flex-col h-full">
 			{/* Chat Header */}
-			<div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
+			<div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between">
 				<div className="flex items-center gap-3">
 					<div className="w-12 h-12 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold mr-3">
 						PP
@@ -113,21 +113,21 @@ const ChatView = () => {
 						<p className="text-xs text-gray-500">xxx</p>
 					</div>
 				</div>
-				<div className="flex items-center gap-4">
-					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
-						<FaPhone size={20} />
+				<div className="flex items-center gap-2">
+					<button className="p-2 hover:bg-primary-1/10 rounded-lg text-gray-600 transition">
+						<FaPhone size={18} />
 					</button>
-					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
-						<FaVideo size={20} />
+					<button className="p-2 hover:bg-primary-1/10 rounded-lg text-gray-600 transition">
+						<FaVideo size={18} />
 					</button>
-					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
-						<FaInfoCircle size={20} />
+					<button className="p-2 hover:bg-primary-1/10 rounded-lg text-gray-600 transition">
+						<FaInfoCircle size={18} />
 					</button>
 				</div>
 			</div>
 
 			{/* Messages Area */}
-			<div className="flex-1 overflow-y-auto px-6 py-4 space-y-1">
+			<div className="flex-1 overflow-y-auto px-6 py-4 space-y-1 bg-gray-100">
 				{messages.map((message, index) => {
 					const showAvatar = index === 0 || messages[index - 1].sender !== message.sender;
 					const isHovered = hoveredMessageId === message.id;
@@ -149,7 +149,7 @@ const ChatView = () => {
 								</div>
 							)}
 							<div className="relative">
-								<div className={`max-w-xs ${message.isOwn ? "bg-blue-100 text-black border border-blue-200 shadow-md" : "bg-gray-100 text-black border border-gray-200 shadow-md"} px-4 py-2 rounded-lg`}>
+								<div className={`max-w-xs ${message.isOwn ? "bg-primary-2 text-black border border-primary-2 shadow-md" : "bg-white text-black border border-gray-200 shadow-md"} px-4 py-2 rounded-lg`}>
 									{!message.isOwn && showAvatar && <p className="text-xs text-gray-600 mb-1 font-semibold">{message.sender}</p>}
 									<p className="text-sm">{message.content}</p>
 									
@@ -237,9 +237,9 @@ const ChatView = () => {
 					/>
 					<button
 						onClick={handleSendMessage}
-						className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition font-semibold text-sm"
+						className="text-primary-1 p-1 hover:bg-primary-1/10 rounded-sm transition flex items-center justify-center"
 					>
-						Gửi
+						<IoMdSend size={22} />
 					</button>
 				</div>
 			</div>

@@ -12,3 +12,8 @@ button {
 * {
   font-family: 'Nunito Sans', sans-serif;
 }
+
+@theme {
+  --color-primary-1: #496c60;
+  --color-primary-2: #d1e7dd;
+}
