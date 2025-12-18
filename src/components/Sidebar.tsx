@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { FaSearch, FaUserPlus } from "react-icons/fa";
+import { FaUserPlus } from "react-icons/fa";
+import { AiOutlineSearch } from 'react-icons/ai'
 import { MdGroupAdd } from "react-icons/md";
 import ChatItem from "./ChatItem";
 import Modal from "./Modal";
@@ -10,27 +11,27 @@ const Sidebar = () => {
 
 	return (
 
-		<div className="w-100 h-screen fixed top-0 left-0 mt-18 bg-[#222E35] flex flex-col border-r border-[#222E35]">
+		<div className="w-90 h-screen fixed top-0 left-0 mt-18 bg-white flex flex-col border-r border-gray-200">
 			{/* Search bar + icons */}
 			<div className="p-4 flex items-center">
 				<div className="relative flex-1">
 					<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-						<FaSearch size={20} />
+						<AiOutlineSearch size={22} />
 					</span>
 					<input
 						type="text"
 						placeholder="Tìm kiếm"
-						className="w-full text-lg pl-11 pr-3 py-2 rounded-lg bg-[#2A3942] text-white placeholder-gray-400 focus:outline-none"
+						className="w-full text-sm pl-10 pr-3 py-2 rounded-lg bg-primary-1/10 text-black focus:outline-none focus:ring-1 focus:ring-primary-1"
 					/>
 				</div>
 				<button
-					className="ml-2 p-3 rounded hover:bg-[#2A3942] text-gray-300"
+					className="ml-2 p-2 rounded hover:bg-primary-1/10 text-gray-600"
 					onClick={() => setOpenAddFriend(true)}
 				>
 					<FaUserPlus size={18} />
 				</button>
 				<button
-					className="p-3 rounded hover:bg-[#2A3942] text-gray-300"
+					className="p-2 rounded hover:bg-primary-1/10 text-gray-600"
 					onClick={() => setOpenCreateGroup(true)}
 				>
 					<MdGroupAdd size={18} />

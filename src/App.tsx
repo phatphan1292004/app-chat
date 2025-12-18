@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Auth from "./components/Auth";
+import Auth from "./pages/Auth";
 import ChatApp from "./pages/ChatApp";
 import { useAuthSocket } from "./hooks/useAuthSocket";
 

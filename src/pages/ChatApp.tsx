@@ -16,7 +16,7 @@ const ChatApp: React.FC<ChatAppProps> = ({ onLogout }) => {
       {/* Main area */}
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <div className="flex-1 overflow-hidden pl-100">
+        <div className="flex-1 overflow-hidden pl-90">
           <ChatView />
         </div>
       </div>
