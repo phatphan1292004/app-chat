@@ -1,103 +1,24 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { chatSocket } from "../services/chatSocket";
-import type { SocketResponse } from "../types/socket";
+import { useAuth } from "../hooks/useAuth";
 
 interface AuthProps {
   onLoginSuccess?: () => void;
 }
 
 const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
-  const location = useLocation();
-
-  const [isLogin, setIsLogin] = useState<boolean>(
-    location.pathname !== "/register"
-  );
-  const [user, setUser] = useState<string>("");
-  const [pass, setPass] = useState<string>("");
-  const [showPass, setShowPass] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!error && !success) return;
-
-    const timer = setTimeout(() => {
-      setError(null);
-      setSuccess(null);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [error, success]);
-
-  useEffect(() => {
-    const off = chatSocket.onMessage((res: SocketResponse) => {
-      setLoading(false);
-
-      if (res.status === "error") {
-        const raw =
-          res.mes?.toString() ||
-          res.data?.message?.toString() ||
-          "Lỗi không xác định";
-
-        if (
-          raw.toLowerCase().includes("wrong username") ||
-          raw.toLowerCase().includes("wrong password")
-        ) {
-          setError("Sai tài khoản hoặc mật khẩu");
-        } else {
-          setError(raw);
-        }
-
-        setSuccess(null);
-        return;
-      }
-
-      if (res.event === "REGISTER") {
-        setSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
-        setError(null);
-        setIsLogin(true);
-        setUser("");
-        setPass("");
-        return;
-      }
-
-      if (res.event === "LOGIN" || res.event === "RE_LOGIN") {
-        if (res.data?.RE_LOGIN_CODE) {
-          localStorage.setItem(
-            "relogin_code",
-            res.data.RE_LOGIN_CODE.toString()
-          );
-        }
-        onLoginSuccess?.();
-      }
-    });
-
-    return off;
-  }, [onLoginSuccess]);
-
-  const submit = (): void => {
-    setError(null);
-    setSuccess(null);
-
-    if (!user || !pass) {
-      setError("Vui lòng nhập đầy đủ thông tin");
-      return;
-    }
-
-    setLoading(true);
-    localStorage.setItem("user", user);
-    chatSocket.send(isLogin ? "LOGIN" : "REGISTER", { user, pass });
-  };
-
-  const toggleMode = (): void => {
-    const next = !isLogin;
-    setIsLogin(next);
-    window.history.pushState({}, "", next ? "/login" : "/register");
-    setError(null);
-    setSuccess(null);
-  };
+  const {
+    isLogin,
+    user,
+    pass,
+    showPass,
+    loading,
+    error,
+    success,
+    setUser,
+    setPass,
+    setShowPass,
+    submit,
+    toggleMode,
+  } = useAuth({ onLoginSuccess });
 
   return (
     <>
@@ -114,25 +35,15 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         )}
       </div>
 
-      <div
-        className="flex min-h-screen items-center justify-center
-                      bg-gradient-to-b from-[#eaf2ff] to-white"
-      >
-        <div
-          className="w-[360px] rounded-xl bg-white px-8 py-7
-                        shadow-[0_6px_24px_rgba(0,0,0,0.08)]"
-        >
+      <div className="flex min-h-screen items-center justify-center from-[#eaf2ff] to-white">
+        <div className="w-[360px] rounded-xl bg-white px-8 py-7 shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
           <h2 className="mb-6 text-center text-[22px] font-semibold text-[#0068ff]">
             {isLogin ? "Đăng nhập" : "Đăng ký"}
           </h2>
 
           <input
-            className="mb-3 h-11 w-full rounded-lg
-                       border border-gray-300
-                       px-3 text-sm
-                       focus:border-[#0068ff]
-                       focus:ring-1 focus:ring-[#0068ff]
-                       focus:outline-none"
+            className="mb-3 h-11 w-full rounded-lg border border-gray-300 px-3 text-sm
+                       focus:border-[#0068ff] focus:ring-1 focus:ring-[#0068ff] focus:outline-none"
             placeholder="Tài khoản"
             value={user}
             onChange={(e) => setUser(e.target.value)}
@@ -141,12 +52,8 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           <div className="relative mb-4">
             <input
               type={showPass ? "text" : "password"}
-              className="h-11 w-full rounded-lg
-                         border border-gray-300
-                         px-3 pr-12 text-sm
-                         focus:border-[#0068ff]
-                         focus:ring-1 focus:ring-[#0068ff]
-                         focus:outline-none"
+              className="h-11 w-full rounded-lg border border-gray-300 px-3 pr-12 text-sm
+                         focus:border-[#0068ff] focus:ring-1 focus:ring-[#0068ff] focus:outline-none"
               placeholder="Mật khẩu"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
@@ -157,7 +64,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
               tabIndex={-1}
               onClick={() => setShowPass(!showPass)}
               className="absolute right-3 top-1/2 -translate-y-1/2
-             text-gray-400 hover:text-gray-600"
+                         text-gray-400 hover:text-gray-600"
             >
               {showPass ? (
                 <svg
@@ -197,8 +104,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           <button
             onClick={submit}
             disabled={loading}
-            className="w-full rounded-lg
-                       bg-[#0068ff] py-2.5
+            className="w-full rounded-lg bg-[#0068ff] py-2.5
                        text-sm font-semibold text-white
                        transition hover:bg-[#0053cc]
                        disabled:opacity-60"
