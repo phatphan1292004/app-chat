@@ -1,73 +1,45 @@
-import { useState, useRef } from "react";
-import { FaPhone, FaVideo, FaInfoCircle, FaSmile, FaPaperclip, FaImage, FaReply, FaShare, FaEllipsisV } from "react-icons/fa";
-import { IoMdSend } from 'react-icons/io'
+import { useState, useRef, useEffect } from "react";
+import { FaPhone, FaVideo, FaInfoCircle, FaSmile, FaPaperclip, FaImage } from "react-icons/fa";
+import { IoMdSend } from "react-icons/io";
 import EmojiPickerModal from "./EmojiPickerModal";
+import MessageItem from "./MessageItem";
+import MenuDropdown from "./MenuDropdown";
+import type { Message } from "../types/message.js";
 
-interface Message {
-	id: number;
-	sender: string;
-	avatar: string;
-	content: string;
-	timestamp: string;
-	isOwn: boolean;
-	reactions?: Record<string, number>;
-	isSticker?: boolean; // Flag to indicate if content is a sticker URL
-}
-
-const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 const INITIAL_MESSAGES: Message[] = [
-	{ id: 1, sender: "Phat Phan", avatar: "PP", content: "Hello", timestamp: "23:24", isOwn: false },
-	{ id: 2, sender: "You", avatar: "Y", content: "Hello Phat Phan", timestamp: "23:24", isOwn: true },
-	{ id: 3, sender: "Phat Phan", avatar: "PP", content: "Làm bài đi", timestamp: "23:24", isOwn: false },
-	{ id: 4, sender: "Phat Phan", avatar: "PP", content: "ok bạn nhé", timestamp: "23:25", isOwn: false },
+	{
+		id: 1,
+		sender: "Phat Phan",
+		avatar: "PP",
+		content: "Hello",
+		timestamp: "23:24",
+		isOwn: false,
+	},
+	{
+		id: 2,
+		sender: "You",
+		avatar: "Y",
+		content: "Hello Phat Phan",
+		timestamp: "23:24",
+		isOwn: true,
+	},
+	{
+		id: 3,
+		sender: "Phat Phan",
+		avatar: "PP",
+		content: "Làm bài đi",
+		timestamp: "23:24",
+		isOwn: false,
+	},
+	{
+		id: 4,
+		sender: "Phat Phan",
+		avatar: "PP",
+		content: "ok bạn nhé",
+		timestamp: "23:25",
+		isOwn: false,
+	},
 ];
-
-interface ActionButtonProps {
-	icon: React.ComponentType<{ size: number }>;
-	title: string;
-	onClick?: (e: React.MouseEvent) => void;
-}
-
-const ActionButton: React.FC<ActionButtonProps> = ({ icon: Icon, title, onClick }) => (
-	<button 
-		className="p-1.5 hover:bg-gray-100 rounded-full text-gray-600 transition"
-		title={title}
-		onClick={onClick}
-	>
-		<Icon size={14} />
-	</button>
-);
-
-interface MenuDropdownProps {
-	isOwn: boolean;
-}
-
-const MenuDropdown: React.FC<MenuDropdownProps> = ({ isOwn }) => (
-	<div className={`absolute top-8 ${isOwn ? "right-0" : "left-0"} bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-max`}>
-		<MenuItem label="Copy tin nhắn" />
-		<MenuItem label="Ghim tin nhắn" />
-		<MenuItem label="Đánh dấu tin nhắn" />
-		<MenuItem label="Chọn nhiều tin nhắn" />
-		<hr className="my-1" />
-		<MenuItem label="Xem chi tiết" />
-		<MenuItem label="Tuỳ chọn khác" showArrow />
-		<hr className="my-1" />
-		<MenuItem label="Xóa chi ở phía tôi" isDanger />
-	</div>
-);
-
-interface MenuItemProps {
-	label: string;
-	isDanger?: boolean;
-	showArrow?: boolean;
-}
-
-const MenuItem: React.FC<MenuItemProps> = ({ label, isDanger, showArrow }) => (
-	<button className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-2 text-sm ${isDanger ? "text-red-600" : "text-gray-700"}`}>
-		{label}
-		{showArrow && <span className="ml-auto text-gray-400">›</span>}
-	</button>
-);
 
 const ChatView = () => {
 	const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
@@ -77,20 +49,24 @@ const ChatView = () => {
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 	const [expandedImageId, setExpandedImageId] = useState<number | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const messagesEndRef = useRef<HTMLDivElement | null>(null);
+	const hoverHideTimeout = useRef<number | null>(null);
 
 	const handleSendMessage = () => {
 		if (inputValue.trim()) {
-			// Check if content is a sticker (starts with emoji or is a URL)
 			const isStickerUrl = inputValue.trim().startsWith("https://media.tenor.com");
 			const isEmoji = /^[\p{Emoji}]+$/u.test(inputValue.trim());
 			const isSticker = isStickerUrl || isEmoji;
-			
+
 			const newMessage: Message = {
 				id: messages.length + 1,
 				sender: "You",
 				avatar: "YN",
 				content: inputValue,
-				timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+				timestamp: new Date().toLocaleTimeString([], {
+					hour: "2-digit",
+					minute: "2-digit",
+				}),
 				isOwn: true,
 				reactions: {},
 				isSticker: isSticker,
@@ -101,20 +77,44 @@ const ChatView = () => {
 	};
 
 	const handleAddReaction = (messageId: number, emoji: string) => {
-		setMessages(messages.map(msg => {
-			if (msg.id === messageId) {
-				const reactions = msg.reactions || {};
-				reactions[emoji] = (reactions[emoji] || 0) + 1;
-				return { ...msg, reactions };
-			}
-			return msg;
-		}));
+		setMessages(
+			messages.map((msg) => {
+				if (msg.id === messageId) {
+					const reactions = msg.reactions || {};
+					reactions[emoji] = (reactions[emoji] || 0) + 1;
+					return { ...msg, reactions };
+				}
+				return msg;
+			})
+		);
 		setHoveredMessageId(null);
 	};
 
 	const handleEmojiSelect = (emoji: string) => {
 		setInputValue(inputValue + emoji);
 	};
+
+	const handleHoverStart = (messageId: number) => {
+		if (hoverHideTimeout.current) {
+			clearTimeout(hoverHideTimeout.current);
+			hoverHideTimeout.current = null;
+		}
+		setHoveredMessageId(messageId);
+	};
+
+	const handleHoverEnd = () => {
+		if (hoverHideTimeout.current) {
+			clearTimeout(hoverHideTimeout.current);
+		}
+		hoverHideTimeout.current = window.setTimeout(() => {
+			setHoveredMessageId(null);
+			hoverHideTimeout.current = null;
+		}, 250);
+	};
+
+	useEffect(() => {
+		messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [messages]);
 
 	const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -127,7 +127,10 @@ const ChatView = () => {
 					sender: "You",
 					avatar: "YN",
 					content: imageData,
-					timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+					timestamp: new Date().toLocaleTimeString([], {
+						hour: "2-digit",
+						minute: "2-digit",
+					}),
 					isOwn: true,
 					reactions: {},
 					isSticker: true,
@@ -169,110 +172,24 @@ const ChatView = () => {
 
 			{/* Messages Area */}
 			<div className="flex-1 overflow-y-auto px-6 py-4 space-y-1 bg-gray-100">
-				{messages.map((message, index) => {
-					const showAvatar = index === 0 || messages[index - 1].sender !== message.sender;
-					const isHovered = hoveredMessageId === message.id;
-					
-					return (
-						<div 
-							key={message.id} 
-							className={`flex ${message.isOwn ? "justify-end" : "justify-start"} relative`}
-							onMouseEnter={() => setHoveredMessageId(message.id)}
-							onMouseLeave={() => setHoveredMessageId(null)}
-						>
-							{!message.isOwn && (
-								<div className="w-8 h-8 mr-3 flex-shrink-0">
-									{showAvatar && (
-										<div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
-											{message.avatar}
-										</div>
-									)}
-								</div>
-							)}
-							<div className="relative">
-								{message.isSticker ? (
-									// Sticker display (emoji or image)
-									<div className="flex items-center justify-center hover:scale-105 transition cursor-pointer rounded-xl">
-										{message.content.startsWith("data:image") ? (
-											<button
-												onClick={() => setExpandedImageId(message.id)}
-												className="w-100 h-65 flex items-center justify-center rounded-xl overflow-hidden bg-white hover:shadow-lg transition"
-											>
-												<img 
-													src={message.content} 
-													alt="uploaded image"
-													className="w-full h-full object-contain"
-												/>
-											</button>
-										) : (
-											<div className="text-[100px] leading-none">
-												{message.content}
-											</div>
-										)}
-									</div>
-								) : (
-									// Text message display
-									<div className={`max-w-xs ${message.isOwn ? "bg-primary-2 text-black border border-primary-2 shadow-md" : "bg-white text-black border border-gray-200 shadow-md"} px-4 py-2 rounded-lg`}>
-										{!message.isOwn && showAvatar && <p className="text-xs text-gray-600 mb-1 font-semibold">{message.sender}</p>}
-										<p className="text-sm">{message.content}</p>
-										
-										{/* Reactions Display */}
-										{message.reactions && Object.keys(message.reactions).length > 0 && (
-											<div className="flex gap-1 mt-2 flex-wrap">
-												{Object.entries(message.reactions).map(([emoji, count]) => (
-												<span key={emoji} className="bg-gray-200 rounded-full px-2 py-1 text-xs flex items-center gap-1 cursor-pointer hover:bg-gray-300">
-													{emoji} {count}
-												</span>
-												))}
-											</div>
-										)}
-									</div>
-								)}
-							
-								{/* Message Actions */}
-								{isHovered && (
-									<>
-										{/* Emoji Picker */}
-										<div className={`absolute ${index < 2 ? "-bottom-12" : "-top-12"} ${message.isOwn ? "right-0" : "left-0"} bg-white border border-gray-200 rounded-full px-3 py-2 shadow-lg flex gap-2 z-20`}>
-											{EMOJIS.map(emoji => (
-												<button
-													key={emoji}
-													className="text-lg hover:scale-125 transition cursor-pointer"
-													onClick={() => handleAddReaction(message.id, emoji)}
-													title={emoji}
-												>
-													{emoji}
-												</button>
-											))}
-										</div>
-										
-										{/* Action Bar */}
-										<div className={`absolute top-0 ${message.isOwn ? "right-full mr-2" : "left-full ml-2"} flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-lg`}>
-											<ActionButton icon={FaReply} title="Trả lời" />
-											<ActionButton icon={FaShare} title="Chuyển tiếp" />
-											<ActionButton 
-												icon={FaEllipsisV} 
-												title="Menu"
-												onClick={(e) => {
-													e.stopPropagation();
-													setOpenMenuId(openMenuId === message.id ? null : message.id);
-												}}
-											/>
-										</div>
-										
-										{/* Dropdown Menu */}
-										{openMenuId === message.id && <MenuDropdown isOwn={message.isOwn} />}
-									</>
-								)}
-							</div>
-							{message.isOwn && showAvatar && (
-								<div className="w-8 h-8 ml-2 flex-shrink-0 rounded-full bg-gradient-to-br from-green-400 to-blue-400 flex items-center justify-center text-white text-xs font-bold">
-									YOU
-								</div>
-							)}
-						</div>
-					);
-				})}
+				{messages.map((message, index) => (
+					<MessageItem
+						key={message.id}
+						message={message}
+						index={index}
+						isHovered={hoveredMessageId === message.id}
+						openMenuId={openMenuId}
+						onHoverStart={handleHoverStart}
+						onHoverEnd={handleHoverEnd}
+						onAddReaction={handleAddReaction}
+						onOpenMenu={(id) =>
+							setOpenMenuId(openMenuId === id ? null : id)
+						}
+						onExpandImage={setExpandedImageId}
+						MenuDropdown={MenuDropdown}
+					/>
+				))}
+				<div ref={messagesEndRef} className="h-1" />
 			</div>
 
 			{/* Input Area */}
@@ -282,7 +199,7 @@ const ChatView = () => {
 					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
 						<FaPaperclip size={20} />
 					</button>
-					<button 
+					<button
 						onClick={() => fileInputRef.current?.click()}
 						className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
 						title="Chọn ảnh"
@@ -296,7 +213,7 @@ const ChatView = () => {
 						onChange={handleImageUpload}
 						className="hidden"
 					/>
-					<button 
+					<button
 						onClick={() => setShowEmojiPicker(true)}
 						className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
 					>
@@ -309,7 +226,12 @@ const ChatView = () => {
 						type="text"
 						value={inputValue}
 						onChange={(e) => setInputValue(e.target.value)}
-						onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+						onKeyDown={(e) => {
+							if (e.key === "Enter") {
+								e.preventDefault();
+								handleSendMessage();
+							}
+						}}
 						placeholder="Nhập tin nhắn tới 10d Frontend"
 						className="flex-1 px-4 py-2 rounded-full text-black placeholder-gray-500 focus:outline-none"
 					/>
@@ -330,13 +252,19 @@ const ChatView = () => {
 
 				{/* Image Viewer Modal */}
 				{expandedImageId !== null && (
-					<div 
+					<div
 						className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
 						onClick={() => setExpandedImageId(null)}
 					>
-						<div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+						<div
+							className="relative max-w-4xl max-h-[90vh]"
+							onClick={(e) => e.stopPropagation()}
+						>
 							<img
-								src={messages.find(m => m.id === expandedImageId)?.content || ""}
+								src={
+									messages.find((m) => m.id === expandedImageId)
+										?.content || ""
+								}
 								alt="expanded"
 								className="w-full h-full object-contain rounded-lg"
 							/>
@@ -345,8 +273,18 @@ const ChatView = () => {
 								className="absolute top-4 right-4 bg-white rounded-full p-2 hover:bg-gray-200 transition"
 								title="Đóng"
 							>
-								<svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+								<svg
+									className="w-6 h-6 text-black"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path
+										strokeLinecap="round"
+										strokeLinejoin="round"
+										strokeWidth={2}
+										d="M6 18L18 6M6 6l12 12"
+									/>
 								</svg>
 							</button>
 						</div>
