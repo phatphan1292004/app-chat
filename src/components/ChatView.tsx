@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { FaPhone, FaVideo, FaInfoCircle, FaSmile, FaPaperclip, FaImage, FaReply, FaShare, FaEllipsisV } from "react-icons/fa";
 import { IoMdSend } from 'react-icons/io'
+import EmojiPickerModal from "./EmojiPickerModal";
+
 interface Message {
 	id: number;
 	sender: string;
@@ -9,6 +11,7 @@ interface Message {
 	timestamp: string;
 	isOwn: boolean;
 	reactions?: Record<string, number>;
+	isSticker?: boolean; // Flag to indicate if content is a sticker URL
 }
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
@@ -71,9 +74,15 @@ const ChatView = () => {
 	const [inputValue, setInputValue] = useState("");
 	const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
 	const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+	const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
 	const handleSendMessage = () => {
 		if (inputValue.trim()) {
+			// Check if content is a sticker (starts with emoji or is a URL)
+			const isStickerUrl = inputValue.trim().startsWith("https://media.tenor.com");
+			const isEmoji = /^[\p{Emoji}]+$/u.test(inputValue.trim());
+			const isSticker = isStickerUrl || isEmoji;
+			
 			const newMessage: Message = {
 				id: messages.length + 1,
 				sender: "You",
@@ -82,6 +91,7 @@ const ChatView = () => {
 				timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
 				isOwn: true,
 				reactions: {},
+				isSticker: isSticker,
 			};
 			setMessages([...messages, newMessage]);
 			setInputValue("");
@@ -98,6 +108,10 @@ const ChatView = () => {
 			return msg;
 		}));
 		setHoveredMessageId(null);
+	};
+
+	const handleEmojiSelect = (emoji: string) => {
+		setInputValue(inputValue + emoji);
 	};
 
 	return (
@@ -149,21 +163,29 @@ const ChatView = () => {
 								</div>
 							)}
 							<div className="relative">
-								<div className={`max-w-xs ${message.isOwn ? "bg-primary-2 text-black border border-primary-2 shadow-md" : "bg-white text-black border border-gray-200 shadow-md"} px-4 py-2 rounded-lg`}>
-									{!message.isOwn && showAvatar && <p className="text-xs text-gray-600 mb-1 font-semibold">{message.sender}</p>}
-									<p className="text-sm">{message.content}</p>
-									
-									{/* Reactions Display */}
-									{message.reactions && Object.keys(message.reactions).length > 0 && (
-										<div className="flex gap-1 mt-2 flex-wrap">
-											{Object.entries(message.reactions).map(([emoji, count]) => (
-											<span key={emoji} className="bg-gray-200 rounded-full px-2 py-1 text-xs flex items-center gap-1 cursor-pointer hover:bg-gray-300">
-												{emoji} {count}
-											</span>
-											))}
-										</div>
-									)}
-								</div>
+								{message.isSticker ? (
+									// Sticker display (emoji)
+									<div className={`text-8xl flex items-center justify-center w-24 h-24 hover:scale-110 transition cursor-pointer`}>
+										{message.content}
+									</div>
+								) : (
+									// Text message display
+									<div className={`max-w-xs ${message.isOwn ? "bg-primary-2 text-black border border-primary-2 shadow-md" : "bg-white text-black border border-gray-200 shadow-md"} px-4 py-2 rounded-lg`}>
+										{!message.isOwn && showAvatar && <p className="text-xs text-gray-600 mb-1 font-semibold">{message.sender}</p>}
+										<p className="text-sm">{message.content}</p>
+										
+										{/* Reactions Display */}
+										{message.reactions && Object.keys(message.reactions).length > 0 && (
+											<div className="flex gap-1 mt-2 flex-wrap">
+												{Object.entries(message.reactions).map(([emoji, count]) => (
+												<span key={emoji} className="bg-gray-200 rounded-full px-2 py-1 text-xs flex items-center gap-1 cursor-pointer hover:bg-gray-300">
+													{emoji} {count}
+												</span>
+												))}
+											</div>
+										)}
+									</div>
+								)}
 							
 								{/* Message Actions */}
 								{isHovered && (
@@ -221,7 +243,10 @@ const ChatView = () => {
 					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
 						<FaImage size={20} />
 					</button>
-					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
+					<button 
+						onClick={() => setShowEmojiPicker(true)}
+						className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
+					>
 						<FaSmile size={20} />
 					</button>
 				</div>
@@ -242,6 +267,13 @@ const ChatView = () => {
 						<IoMdSend size={22} />
 					</button>
 				</div>
+
+				{/* Emoji Picker Modal */}
+				<EmojiPickerModal
+					isOpen={showEmojiPicker}
+					onClose={() => setShowEmojiPicker(false)}
+					onEmojiSelect={handleEmojiSelect}
+				/>
 			</div>
 		</div>
 	);
