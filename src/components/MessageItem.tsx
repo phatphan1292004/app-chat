@@ -1,0 +1,170 @@
+import { FaReply, FaShare, FaEllipsisV } from "react-icons/fa";
+import type { Message } from "../types/message.js";
+
+const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
+
+interface MessageItemProps {
+	message: Message;
+	index: number;
+	isHovered: boolean;
+	openMenuId: number | null;
+	onHoverStart: (messageId: number) => void;
+	onHoverEnd: () => void;
+	onAddReaction: (messageId: number, emoji: string) => void;
+	onOpenMenu: (messageId: number) => void;
+	onExpandImage: (messageId: number) => void;
+	MenuDropdown: React.ComponentType<{ isOwn: boolean }>;
+}
+
+const ActionButton: React.FC<{
+	icon: React.ComponentType<{ size: number }>;
+	title: string;
+	onClick?: (e: React.MouseEvent) => void;
+}> = ({ icon: Icon, title, onClick }) => (
+	<button
+		className="p-1.5 hover:bg-gray-100 rounded-full text-gray-600 transition"
+		title={title}
+		onClick={onClick}
+	>
+		<Icon size={14} />
+	</button>
+);
+
+const MessageItem: React.FC<MessageItemProps> = ({
+	message,
+	index,
+	isHovered,
+	openMenuId,
+	onHoverStart,
+	onHoverEnd,
+	onAddReaction,
+	onOpenMenu,
+	onExpandImage,
+	MenuDropdown,
+}) => {
+	const showAvatar = index === 0 || (index > 0 && message.sender !== undefined);
+
+	return (
+		<div
+			className={`flex ${message.isOwn ? "justify-end" : "justify-start"} relative`}
+			onMouseEnter={() => onHoverStart(message.id)}
+			onMouseLeave={onHoverEnd}
+		>
+			{!message.isOwn && (
+				<div className="w-8 h-8 mr-3 flex-shrink-0">
+					{showAvatar && (
+						<div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
+							{message.avatar}
+						</div>
+					)}
+				</div>
+			)}
+			<div className="relative">
+				{message.isSticker ? (
+					// Sticker display (emoji or image)
+					<div className="flex items-center justify-center hover:scale-101 transition cursor-pointer rounded-xl">
+						{message.content.startsWith("data:image") ? (
+							<button
+								onClick={() => onExpandImage(message.id)}
+								className="w-100 h-60 flex items-center justify-center rounded-xl overflow-hidden bg-white hover:shadow-lg transition"
+							>
+								<img
+									src={message.content}
+									alt="uploaded image"
+									className="w-full h-full object-contain"
+								/>
+							</button>
+						) : (
+							<div className="text-[90px] leading-none">{message.content}</div>
+						)}
+					</div>
+				) : (
+					// Text message display
+					<div
+						className={`max-w-xs ${
+							message.isOwn
+								? "bg-primary-2 text-black border border-primary-2 shadow-md"
+								: "bg-white text-black border border-gray-200 shadow-md"
+						} px-4 py-2 rounded-lg`}
+					>
+						{!message.isOwn && showAvatar && (
+							<p className="text-xs text-gray-600 mb-1 font-semibold">{message.sender}</p>
+						)}
+						<p className="text-sm">{message.content}</p>
+
+						{/* Reactions Display */}
+						{message.reactions && Object.keys(message.reactions).length > 0 && (
+							<div className="flex gap-1 mt-2 flex-wrap">
+								{Object.entries(message.reactions).map(([emoji, count]) => (
+									<span
+										key={emoji}
+										className="bg-gray-200 rounded-full px-2 py-1 text-xs flex items-center gap-1 cursor-pointer hover:bg-gray-300"
+									>
+										{emoji} {count}
+									</span>
+								))}
+							</div>
+						)}
+					</div>
+				)}
+
+				{/* Message Actions */}
+				{isHovered && (
+					<>
+						{/* Emoji Picker (hide when menu open) */}
+						{openMenuId !== message.id && (
+							<div
+								onMouseEnter={() => onHoverStart(message.id)}
+								onMouseLeave={onHoverEnd}
+								className={`absolute ${index < 2 ? "-bottom-12" : "-top-12"} ${
+									message.isOwn ? "right-0" : "left-0"
+								} bg-white border border-gray-200 rounded-full px-3 py-2 shadow-lg flex gap-2 z-20`}
+							>
+								{EMOJIS.map((emoji) => (
+									<button
+										key={emoji}
+										className="text-lg hover:scale-125 transition cursor-pointer"
+										onClick={() => onAddReaction(message.id, emoji)}
+										title={emoji}
+									>
+										{emoji}
+									</button>
+								))}
+							</div>
+						)}
+
+						{/* Action Bar */}
+						<div
+							onMouseEnter={() => onHoverStart(message.id)}
+							onMouseLeave={onHoverEnd}
+							className={`absolute top-0 ${
+								message.isOwn ? "right-full mr-2" : "left-full ml-2"
+							} flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-lg`}
+						>
+							<ActionButton icon={FaReply} title="Trả lời" />
+							<ActionButton icon={FaShare} title="Chuyển tiếp" />
+							<ActionButton
+								icon={FaEllipsisV}
+								title="Menu"
+								onClick={(e) => {
+									e.stopPropagation();
+									onOpenMenu(message.id);
+								}}
+							/>
+						</div>
+
+						{/* Dropdown Menu */}
+						{openMenuId === message.id && <MenuDropdown isOwn={message.isOwn} />}
+					</>
+				)}
+			</div>
+			{message.isOwn && showAvatar && (
+				<div className="w-8 h-8 ml-2 flex-shrink-0 rounded-full bg-gradient-to-br from-green-400 to-blue-400 flex items-center justify-center text-white text-xs font-bold">
+					YOU
+				</div>
+			)}
+		</div>
+	);
+};
+
+export default MessageItem;
