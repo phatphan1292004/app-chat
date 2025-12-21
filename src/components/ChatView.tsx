@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { FaPhone, FaVideo, FaInfoCircle, FaSmile, FaPaperclip, FaImage, FaReply, FaShare, FaEllipsisV } from "react-icons/fa";
 import { IoMdSend } from 'react-icons/io'
 import EmojiPickerModal from "./EmojiPickerModal";
@@ -75,6 +75,8 @@ const ChatView = () => {
 	const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
 	const [openMenuId, setOpenMenuId] = useState<number | null>(null);
 	const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+	const [expandedImageId, setExpandedImageId] = useState<number | null>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const handleSendMessage = () => {
 		if (inputValue.trim()) {
@@ -112,6 +114,31 @@ const ChatView = () => {
 
 	const handleEmojiSelect = (emoji: string) => {
 		setInputValue(inputValue + emoji);
+	};
+
+	const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = (event) => {
+				const imageData = event.target?.result as string;
+				const newMessage: Message = {
+					id: messages.length + 1,
+					sender: "You",
+					avatar: "YN",
+					content: imageData,
+					timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+					isOwn: true,
+					reactions: {},
+					isSticker: true,
+				};
+				setMessages([...messages, newMessage]);
+			};
+			reader.readAsDataURL(file);
+		}
+		if (fileInputRef.current) {
+			fileInputRef.current.value = "";
+		}
 	};
 
 	return (
@@ -164,9 +191,24 @@ const ChatView = () => {
 							)}
 							<div className="relative">
 								{message.isSticker ? (
-									// Sticker display (emoji)
-									<div className={`text-8xl flex items-center justify-center w-24 h-24 hover:scale-110 transition cursor-pointer`}>
-										{message.content}
+									// Sticker display (emoji or image)
+									<div className="flex items-center justify-center hover:scale-105 transition cursor-pointer rounded-xl">
+										{message.content.startsWith("data:image") ? (
+											<button
+												onClick={() => setExpandedImageId(message.id)}
+												className="w-100 h-65 flex items-center justify-center rounded-xl overflow-hidden bg-white hover:shadow-lg transition"
+											>
+												<img 
+													src={message.content} 
+													alt="uploaded image"
+													className="w-full h-full object-contain"
+												/>
+											</button>
+										) : (
+											<div className="text-[100px] leading-none">
+												{message.content}
+											</div>
+										)}
 									</div>
 								) : (
 									// Text message display
@@ -240,9 +282,20 @@ const ChatView = () => {
 					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
 						<FaPaperclip size={20} />
 					</button>
-					<button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
+					<button 
+						onClick={() => fileInputRef.current?.click()}
+						className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
+						title="Chọn ảnh"
+					>
 						<FaImage size={20} />
 					</button>
+					<input
+						ref={fileInputRef}
+						type="file"
+						accept="image/*"
+						onChange={handleImageUpload}
+						className="hidden"
+					/>
 					<button 
 						onClick={() => setShowEmojiPicker(true)}
 						className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
@@ -274,6 +327,31 @@ const ChatView = () => {
 					onClose={() => setShowEmojiPicker(false)}
 					onEmojiSelect={handleEmojiSelect}
 				/>
+
+				{/* Image Viewer Modal */}
+				{expandedImageId !== null && (
+					<div 
+						className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
+						onClick={() => setExpandedImageId(null)}
+					>
+						<div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+							<img
+								src={messages.find(m => m.id === expandedImageId)?.content || ""}
+								alt="expanded"
+								className="w-full h-full object-contain rounded-lg"
+							/>
+							<button
+								onClick={() => setExpandedImageId(null)}
+								className="absolute top-4 right-4 bg-white rounded-full p-2 hover:bg-gray-200 transition"
+								title="Đóng"
+							>
+								<svg className="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
