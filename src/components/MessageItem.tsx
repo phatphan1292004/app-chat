@@ -1,5 +1,6 @@
 import { FaReply, FaShare, FaEllipsisV } from "react-icons/fa";
 import type { Message } from "../types/message.js";
+import { isImageLike } from "../utils";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
@@ -63,7 +64,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
 				{message.isSticker ? (
 					// Sticker display (emoji or image)
 					<div className="flex items-center justify-center hover:scale-101 transition cursor-pointer rounded-xl">
-						{message.content.startsWith("data:image") ? (
+						{isImageLike(message.content) ? (
 							<button
 								onClick={() => onExpandImage(message.id)}
 								className="w-100 h-60 flex items-center justify-center rounded-xl overflow-hidden bg-white hover:shadow-lg transition"

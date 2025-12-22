@@ -40,7 +40,7 @@ export function useAuthSocket() {
   }, []);
 
   const logout = () => {
-    chatSocket.send("LOGOUT", {});
+    chatSocket.logout();
     localStorage.clear();
     setLogged(false);
     window.location.href = "/login";
