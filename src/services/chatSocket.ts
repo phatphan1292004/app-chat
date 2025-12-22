@@ -5,24 +5,36 @@ type SocketCallback = (res: SocketResponse) => void;
 class ChatSocket {
   private ws: WebSocket | null = null;
   private callbacks = new Set<SocketCallback>();
-  private pendingMessages: string[] = [];
+  private connecting = false;
+  private queue: string[] = [];
 
   connect() {
-    if (this.ws) return;
+    if (this.ws || this.connecting) return;
 
+    this.connecting = true;
     this.ws = new WebSocket("wss://chat.longapp.site/chat/chat");
 
     this.ws.onopen = () => {
       console.log("✅ WebSocket connected");
-
-      this.pendingMessages.forEach((m) => this.ws!.send(m));
-      this.pendingMessages = [];
+      this.connecting = false;
 
       const user = localStorage.getItem("user");
       const code = localStorage.getItem("relogin_code");
+
       if (user && code) {
-        this.send("RE_LOGIN", { user, code });
+        this.ws!.send(
+          JSON.stringify({
+            action: "onchat",
+            data: {
+              event: "RE_LOGIN",
+              data: { user, code },
+            },
+          })
+        );
       }
+
+      this.queue.forEach((msg) => this.ws!.send(msg));
+      this.queue = [];
     };
 
     this.ws.onmessage = (e) => {
@@ -33,18 +45,13 @@ class ChatSocket {
     this.ws.onclose = () => {
       console.log("❌ WebSocket closed");
       this.ws = null;
+      this.connecting = false;
     };
   }
 
   onMessage(cb: SocketCallback): () => void {
     this.callbacks.add(cb);
-    return () => {
-      this.callbacks.delete(cb);
-    };
-  }
-
-  isConnected() {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return () => this.callbacks.delete(cb);
   }
 
   send<E extends SocketEvent>(event: E, data: unknown) {
@@ -54,7 +61,7 @@ class ChatSocket {
     });
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      this.pendingMessages.push(payload);
+      this.queue.push(payload);
       this.connect();
       return;
     }
