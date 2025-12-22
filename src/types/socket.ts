@@ -1,4 +1,5 @@
 export type SocketEvent =
+  | "AUTH"
   | "LOGIN"
   | "REGISTER"
   | "RE_LOGIN"
@@ -42,6 +43,7 @@ export type GetUserListSuccess = Array<{
 }>;
 
 export type SocketSuccessMap = {
+  AUTH: never;
   LOGIN: LoginSuccess;
   REGISTER: LoginSuccess;
   RE_LOGIN: LoginSuccess;
