@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { FaPhone, FaVideo, FaInfoCircle, FaSmile, FaPaperclip, FaImage } from "react-icons/fa";
+import { AiOutlineClose } from "react-icons/ai";
 import { IoMdSend } from "react-icons/io";
 import EmojiPickerModal from "./EmojiPickerModal";
 import MessageItem from "./MessageItem";
@@ -273,19 +274,7 @@ const ChatView = () => {
 								className="absolute top-4 right-4 bg-white rounded-full p-2 hover:bg-gray-200 transition"
 								title="Đóng"
 							>
-								<svg
-									className="w-6 h-6 text-black"
-									fill="none"
-									stroke="currentColor"
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										strokeWidth={2}
-										d="M6 18L18 6M6 6l12 12"
-									/>
-								</svg>
+								<AiOutlineClose className="w-6 h-6 text-black" />
 							</button>
 						</div>
 					</div>

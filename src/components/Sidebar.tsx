@@ -111,7 +111,7 @@ const Sidebar = () => {
           chatList.map((chat, idx) => {
             return (
               <ChatItem
-                key={chat.name || idx}
+                key={`${chat.name || "unknown"}-${chat.actionTime || idx}-${idx}`}
                 avatar={chat.name?.substring(0, 2).toUpperCase() || "??"}
                 name={chat.name || "Unknown"}
                 time={chat.actionTime ? formatTime(chat.actionTime) : ""}

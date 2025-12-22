@@ -13,7 +13,14 @@ export function useAuthSocket() {
     const off = chatSocket.onMessage((res: SocketResponse) => {
       console.log("📩 SOCKET:", res);
 
-      if (res.status === "error") return;
+      if (res.status === "error") {
+        if (res.event === "RE_LOGIN" || res.event === "LOGIN") {
+          localStorage.removeItem("relogin_code");
+          localStorage.removeItem("user");
+          setLogged(false);
+        }
+        return;
+      }
 
       if (res.event === "LOGIN" || res.event === "RE_LOGIN") {
         const code = res.data?.RE_LOGIN_CODE;
