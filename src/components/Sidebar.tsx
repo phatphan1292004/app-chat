@@ -54,19 +54,18 @@ const Sidebar = () => {
           toast.success("Tham gia phòng thành công!");
           setSearchQuery("");
         } else if (response.status === "error") {
-          toast.error("Không thể tham gia phòng!");
+          toast.error(response.mes?.toString() || "Lỗi khi tham gia phòng");
         }
         unsubscribe();
       }
     });
 
     chatSocket.send("JOIN_ROOM", { name: searchQuery.trim() });
-    toast.success("Tham gia phòng thành công!");
     setSearchQuery("");
   };
 
   return (
-    <div className="w-90 h-screen fixed top-0 left-0 mt-18 bg-white flex flex-col border-r border-gray-200">
+    <div className="w-90 h-screen fixed top-0 left-0 mt-18 bg-white flex flex-col border-r border-gray-200 z-50">
       {/* Search bar + icons */}
       <div className="p-4 border-b border-gray-200">
         {/* Search input */}
