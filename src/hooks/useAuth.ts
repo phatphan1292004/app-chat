@@ -31,11 +31,15 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
         setIsLogin(true);
         setUser("");
         setPass("");
+        setLoading(false);
       }
 
       if (res.event === "LOGIN") {
+        setError(null);
         const code = res.data?.RE_LOGIN_CODE;
-        if (code) localStorage.setItem("relogin_code", code);
+        if (code) {
+          localStorage.setItem("relogin_code", code);
+        }
         setLoading(false);
         onLoginSuccess?.();
       }
@@ -51,8 +55,15 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
     }
 
     setLoading(true);
+    setError(null);
+    setSuccess(null);
     localStorage.setItem("user", user);
-    chatSocket.send(isLogin ? "LOGIN" : "REGISTER", { user, pass });
+    
+    if (isLogin) {
+      chatSocket.login(user, pass);
+    } else {
+      chatSocket.register(user, pass);
+    }
   };
 
   const toggleMode = () => {

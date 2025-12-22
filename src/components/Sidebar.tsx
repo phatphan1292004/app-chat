@@ -9,16 +9,21 @@ import { toast } from "react-toastify";
 import { formatTime } from "../utils";
 import type { GetUserListSuccess } from "../types/socket";
 
-const Sidebar = () => {
+interface SidebarProps {
+  onChatSelect?: (room: string | null, user: string | null, type: "room" | "people") => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const [openAddFriend, setOpenAddFriend] = useState(false);
   const [openCreateGroup, setOpenCreateGroup] = useState(false);
   const [roomName, setRoomName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [chatList, setChatList] = useState<GetUserListSuccess>([]);
+  const [selectedChat, setSelectedChat] = useState<string | null>(null);
 
   useEffect(() => {
     // Load danh sách chat khi component mount
-    chatSocket.send("GET_USER_LIST", {});
+    chatSocket.getUserList();
 
     // Lắng nghe response
     const unsubscribe = chatSocket.onMessage((response) => {
@@ -36,7 +41,7 @@ const Sidebar = () => {
       return;
     }
 
-    chatSocket.send("CREATE_ROOM", { name: roomName.trim() });
+    chatSocket.createRoom(roomName.trim());
     toast.success("Tạo nhóm thành công!");
     setRoomName("");
     setOpenCreateGroup(false);
@@ -53,6 +58,10 @@ const Sidebar = () => {
         if (response.status === "success") {
           toast.success("Tham gia phòng thành công!");
           setSearchQuery("");
+          // Select the joined room
+          const roomName = searchQuery.trim();
+          setSelectedChat(roomName);
+          onChatSelect?.(roomName, null, "room");
         } else if (response.status === "error") {
           toast.error(response.mes?.toString() || "Lỗi khi tham gia phòng");
         }
@@ -60,8 +69,15 @@ const Sidebar = () => {
       }
     });
 
-    chatSocket.send("JOIN_ROOM", { name: searchQuery.trim() });
-    setSearchQuery("");
+    chatSocket.joinRoom(searchQuery.trim());
+  };
+
+  const handleChatItemClick = (chat: GetUserListSuccess[0]) => {
+    const chatName = chat.name || "";
+    const chatType = chat.type === 1 ? "room" : "people";
+    
+    setSelectedChat(chatName);
+    onChatSelect?.(chatType === "room" ? chatName : null, chatType === "people" ? chatName : null, chatType);
   };
 
   return (
@@ -109,14 +125,20 @@ const Sidebar = () => {
       <div className="flex-1 overflow-y-auto">
         {chatList.length > 0 ? (
           chatList.map((chat, idx) => {
+            const isSelected = selectedChat === chat.name;
             return (
-              <ChatItem
-                key={chat.name || idx}
-                avatar={chat.name?.substring(0, 2).toUpperCase() || "??"}
-                name={chat.name || "Unknown"}
-                time={chat.actionTime ? formatTime(chat.actionTime) : ""}
-                lastMessage={chat.type === 1 ? "Nhóm chat" : ""}
-              />
+              <div
+                key={`${chat.name || "unknown"}-${chat.actionTime || idx}-${idx}`}
+                onClick={() => handleChatItemClick(chat)}
+                className={isSelected ? "bg-primary-1/20" : ""}
+              >
+                <ChatItem
+                  avatar={chat.name?.substring(0, 2).toUpperCase() || "??"}
+                  name={chat.name || "Unknown"}
+                  time={chat.actionTime ? formatTime(chat.actionTime) : ""}
+                  lastMessage={chat.type === 1 ? "Nhóm chat" : "Tin nhắn"}
+                />
+              </div>
             );
           })
         ) : (

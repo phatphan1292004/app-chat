@@ -7,8 +7,11 @@ export type SocketEvent =
   | "LOGOUT"
   | "CREATE_ROOM"
   | "GET_ROOM_CHAT_MES"
+  | "GET_PEOPLE_CHAT_MES"
   | "JOIN_ROOM"
-  | "GET_USER_LIST";
+  | "GET_USER_LIST"
+  | "CHECK_USER"
+  | "SEND_CHAT";
 
 export interface LoginSuccess {
   RE_LOGIN_CODE?: string;
@@ -31,9 +34,42 @@ export interface SearchRoomSuccess {
   }>;
 }
 
+export interface ChatMessage {
+  id?: number;
+  sender: string;
+  avatar?: string;
+  content: string;
+  timestamp: string;
+  isOwn?: boolean;
+  reactions?: Record<string, number>;
+  isSticker?: boolean;
+}
+
+export interface RoomChatMessagesSuccess {
+  messages?: ChatMessage[];
+  roomName?: string;
+  page?: number;
+}
+
+export interface PeopleChatMessagesSuccess {
+  messages?: ChatMessage[];
+  username?: string;
+  page?: number;
+}
+
 export interface JoinRoomSuccess {
   roomName?: string;
   name?: string;
+}
+
+export interface CheckUserSuccess {
+  exists: boolean;
+  user?: string;
+}
+
+export interface SendChatSuccess {
+  id?: string;
+  timestamp?: string;
 }
 
 export type GetUserListSuccess = Array<{
@@ -50,9 +86,12 @@ export type SocketSuccessMap = {
   MESSAGE: unknown;
   LOGOUT: unknown;
   CREATE_ROOM: CreateRoomSuccess;
-  GET_ROOM_CHAT_MES: SearchRoomSuccess;
+  GET_ROOM_CHAT_MES: RoomChatMessagesSuccess;
+  GET_PEOPLE_CHAT_MES: PeopleChatMessagesSuccess;
   JOIN_ROOM: JoinRoomSuccess;
   GET_USER_LIST: GetUserListSuccess;
+  CHECK_USER: CheckUserSuccess;
+  SEND_CHAT: SendChatSuccess;
 };
 
 export type SocketError = {
