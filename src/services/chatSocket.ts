@@ -7,6 +7,7 @@ class ChatSocket {
   private callbacks = new Set<SocketCallback>();
   private connecting = false;
   private queue: string[] = [];
+  private didRelogin = false;
 
   connect() {
     if (this.ws || this.connecting) return;
@@ -21,7 +22,7 @@ class ChatSocket {
       const user = localStorage.getItem("user");
       const code = localStorage.getItem("relogin_code");
 
-      if (user && code) {
+      if (!this.didRelogin && user && code) {
         this.ws!.send(
           JSON.stringify({
             action: "onchat",
@@ -31,6 +32,7 @@ class ChatSocket {
             },
           })
         );
+        this.didRelogin = true;
       }
 
       this.queue.forEach((msg) => this.ws!.send(msg));
@@ -46,6 +48,7 @@ class ChatSocket {
       console.log("❌ WebSocket closed");
       this.ws = null;
       this.connecting = false;
+      this.didRelogin = false;
     };
   }
 
@@ -62,7 +65,9 @@ class ChatSocket {
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       this.queue.push(payload);
-      this.connect();
+      if (!this.connecting) {
+        this.connect();
+      }
       return;
     }
 
