@@ -20,10 +20,9 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
 
   useEffect(() => {
     const off = chatSocket.onMessage((res: SocketResponse) => {
-      setLoading(false);
-
       if (res.status === "error") {
         setError(res.mes || "Lỗi không xác định");
+        setLoading(false);
         return;
       }
 
@@ -37,6 +36,7 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
       if (res.event === "LOGIN") {
         const code = res.data?.RE_LOGIN_CODE;
         if (code) localStorage.setItem("relogin_code", code);
+        setLoading(false);
         onLoginSuccess?.();
       }
     });
