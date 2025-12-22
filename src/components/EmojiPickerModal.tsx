@@ -17,19 +17,19 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({ isOpen, onClose, on
 	const stickerPacks = giphyService.getAllStickerPacks();
 
 	useEffect(() => {
-		if (activeTab === "sticker" && isOpen) {
-			loadStickers();
+    if (activeTab === "sticker" && isOpen) {
+      loadStickers();
 		}
 	}, [activeTab, isOpen, currentPackIndex]);
-
-	const loadStickers = () => {
-		if (searchQuery.trim()) {
-			setStickers(giphyService.searchStickers(searchQuery));
-		} else {
-			setStickers(stickerPacks[currentPackIndex]?.stickers || []);
-		}
-	};
-
+  
+  const loadStickers = () => {
+    if (searchQuery.trim()) {
+      setStickers(giphyService.searchStickers(searchQuery));
+    } else {
+      setStickers(stickerPacks[currentPackIndex]?.stickers || []);
+    }
+  };
+  
 	if (!isOpen) return null;
 
 	const handleEmojiClick = (emojiData: EmojiClickData) => {
