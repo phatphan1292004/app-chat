@@ -11,7 +11,8 @@ export type SocketEvent =
   | "JOIN_ROOM"
   | "GET_USER_LIST"
   | "CHECK_USER"
-  | "SEND_CHAT";
+  | "SEND_CHAT"
+  | "CHECK_USER_ONLINE";
 
 export interface LoginSuccess {
   RE_LOGIN_CODE?: string;
@@ -76,6 +77,7 @@ export type GetUserListSuccess = Array<{
   name: string;
   type: number;
   actionTime: string;
+  online?: boolean;
 }>;
 
 export type SocketSuccessMap = {
@@ -92,6 +94,7 @@ export type SocketSuccessMap = {
   GET_USER_LIST: GetUserListSuccess;
   CHECK_USER: CheckUserSuccess;
   SEND_CHAT: SendChatSuccess;
+  CHECK_USER_ONLINE: { status: boolean, user: string};
 };
 
 export type SocketError = {

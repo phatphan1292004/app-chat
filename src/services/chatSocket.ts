@@ -131,6 +131,10 @@ class ChatSocket {
     this.send("GET_PEOPLE_CHAT_MES", { name, page });
   }
 
+  checkUserOnline(name: string) {
+    this.send("CHECK_USER_ONLINE", { user: name });
+  }
+
   isConnected(): boolean {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }

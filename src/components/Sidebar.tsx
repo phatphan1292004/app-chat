@@ -10,7 +10,11 @@ import { formatTime } from "../utils";
 import type { GetUserListSuccess } from "../types/socket";
 
 interface SidebarProps {
-  onChatSelect?: (room: string | null, user: string | null, type: "room" | "people") => void;
+  onChatSelect?: (
+    room: string | null,
+    user: string | null,
+    type: "room" | "people"
+  ) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
@@ -21,18 +25,53 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const [chatList, setChatList] = useState<GetUserListSuccess>([]);
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Load danh sách chat khi component mount
-    chatSocket.getUserList();
+  const checkAndUpdateOnlineStatus = (username: string) => {
+    const unsubscribe = chatSocket.onMessage((response) => {
+      if (response.event === "CHECK_USER_ONLINE" && response.status === "success") {
+        setChatList((prevList) =>
+          prevList.map((chat) =>
+            chat.name === username
+              ? { ...chat, online: response.data.status }
+              : chat
+          )
+        );
+        unsubscribe();
+      }
+    });
+    chatSocket.checkUserOnline(username);
+  };
 
+  useEffect(() => {
+    chatSocket.getUserList();
     // Lắng nghe response
     const unsubscribe = chatSocket.onMessage((response) => {
       if (response.event === "GET_USER_LIST" && response.status === "success") {
         setChatList(response.data || []);
+
+        // Check online status tuần tự cho từng user
+        const peopleChats = (response.data || []).filter(
+          (chat) => chat.type === 0
+        );
+        
+        peopleChats.forEach((chat, index) => {
+          if (chat.name) {
+            setTimeout(() => {
+              checkAndUpdateOnlineStatus(chat.name);
+            }, index * 100);
+          }
+        });
       }
     });
 
-    return () => unsubscribe();
+    // Check online status định kỳ mỗi 60 giây
+    const interval = setInterval(() => {
+      chatSocket.getUserList();
+    }, 60000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   const handleCreateRoom = () => {
@@ -41,10 +80,24 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       return;
     }
 
+    const unsubscribe = chatSocket.onMessage((response) => {
+      if (response.event === "CREATE_ROOM") {
+        if (response.status === "success") {
+          toast.success("Tạo phòng thành công!");
+          setRoomName("");
+          setOpenCreateGroup(false);
+        } else if (response.status === "error") {
+          toast.error(response.mes?.toString() || "Lỗi khi tạo nhóm");
+        } else {
+          toast.success("Tạo phòng thành công!");
+          setRoomName("");
+          setOpenCreateGroup(false);
+        }
+        unsubscribe();
+      }
+    });
+
     chatSocket.createRoom(roomName.trim());
-    toast.success("Tạo nhóm thành công!");
-    setRoomName("");
-    setOpenCreateGroup(false);
   };
 
   const handleJoinRoom = () => {
@@ -54,6 +107,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     }
 
     const unsubscribe = chatSocket.onMessage((response) => {
+      console.log("Join room response:", response);
       if (response.event === "JOIN_ROOM") {
         if (response.status === "success") {
           toast.success("Tham gia phòng thành công!");
@@ -75,9 +129,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const handleChatItemClick = (chat: GetUserListSuccess[0]) => {
     const chatName = chat.name || "";
     const chatType = chat.type === 1 ? "room" : "people";
-    
+
     setSelectedChat(chatName);
-    onChatSelect?.(chatType === "room" ? chatName : null, chatType === "people" ? chatName : null, chatType);
+    onChatSelect?.(
+      chatType === "room" ? chatName : null,
+      chatType === "people" ? chatName : null,
+      chatType
+    );
   };
 
   return (
@@ -92,7 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
             </span>
             <input
               type="text"
-              placeholder="Nhập tên phòng để tham gia..."
+              placeholder="Nhập tên phòng để..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleJoinRoom()}
@@ -137,6 +195,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
                   name={chat.name || "Unknown"}
                   time={chat.actionTime ? formatTime(chat.actionTime) : ""}
                   lastMessage={chat.type === 1 ? "Nhóm chat" : "Tin nhắn"}
+                  online={chat.online}
+                  type={chat.type}
                 />
               </div>
             );
