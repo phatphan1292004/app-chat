@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Auth from "./pages/Auth";
 import ChatApp from "./pages/ChatApp";
 import { useAuthSocket } from "./hooks/useAuthSocket";
@@ -8,6 +10,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ToastContainer />
       <Routes>
         <Route
           path="/login"
