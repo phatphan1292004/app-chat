@@ -23,7 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const [roomName, setRoomName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [chatList, setChatList] = useState<GetUserListSuccess>([]);
-  const [selectedChat, setSelectedChat] = useState<string | null>(null);
+  const [selectedChat, setSelectedChat] = useState<{ name: string; type: number } | null>(null);
 
   const checkAndUpdateOnlineStatus = (username: string) => {
     const unsubscribe = chatSocket.onMessage((response) => {
@@ -107,14 +107,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     }
 
     const unsubscribe = chatSocket.onMessage((response) => {
-      console.log("Join room response:", response);
+      console.log("response", response);
       if (response.event === "JOIN_ROOM") {
         if (response.status === "success") {
           toast.success("Tham gia phòng thành công!");
           setSearchQuery("");
           // Select the joined room
           const roomName = searchQuery.trim();
-          setSelectedChat(roomName);
+          setSelectedChat({ name: roomName, type: 1 });
           onChatSelect?.(roomName, null, "room");
         } else if (response.status === "error") {
           toast.error(response.mes?.toString() || "Lỗi khi tham gia phòng");
@@ -130,7 +130,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     const chatName = chat.name || "";
     const chatType = chat.type === 1 ? "room" : "people";
 
-    setSelectedChat(chatName);
+    setSelectedChat({ name: chatName, type: chat.type });
     onChatSelect?.(
       chatType === "room" ? chatName : null,
       chatType === "people" ? chatName : null,
@@ -183,12 +183,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       <div className="flex-1 overflow-y-auto">
         {chatList.length > 0 ? (
           chatList.map((chat, idx) => {
-            const isSelected = selectedChat === chat.name;
+            const isSelected = selectedChat?.name === chat.name && selectedChat?.type === chat.type;
             return (
               <div
                 key={`${chat.name || "unknown"}-${chat.actionTime || idx}-${idx}`}
                 onClick={() => handleChatItemClick(chat)}
-                className={isSelected ? "bg-primary-1/20" : ""}
+                className={`cursor-pointer ${isSelected ? "bg-primary-1/20" : ""}`}
               >
                 <ChatItem
                   avatar={chat.name?.substring(0, 2).toUpperCase() || "??"}

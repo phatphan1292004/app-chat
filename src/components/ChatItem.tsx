@@ -18,7 +18,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
   online = false,
 }) => {
   return (
-    <div className="flex items-center px-4 py-3 hover:bg-primary-1/10 cursor-pointer">
+    <div className="flex items-center px-4 py-3 hover:bg-primary-1/10">
       <div className="relative w-12 h-12 mr-3">
         <div className="w-12 h-12 rounded-full bg-primary-1 flex items-center justify-center text-white font-bold">
           {avatar}
