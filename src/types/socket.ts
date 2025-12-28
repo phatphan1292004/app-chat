@@ -23,8 +23,7 @@ export interface ErrorPayload {
 }
 
 export interface CreateRoomSuccess {
-  roomId?: string;
-  name?: string;
+  status: boolean;
 }
 
 export interface SearchRoomSuccess {
@@ -59,8 +58,7 @@ export interface PeopleChatMessagesSuccess {
 }
 
 export interface JoinRoomSuccess {
-  roomName?: string;
-  name?: string;
+  status: boolean;
 }
 
 export interface CheckUserSuccess {
