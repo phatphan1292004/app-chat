@@ -4,6 +4,9 @@ import { isStickerContent } from "../utils";
 import type { SocketResponse } from "../types/socket";
 import type { Message } from "../types/message";
 
+const IS_DEV = import.meta.env.DEV;
+const log = (...args: unknown[]) => IS_DEV && console.log(...args);
+
 interface UseChatProps {
   currentRoom: string | null;
   currentUser: string | null;
@@ -29,8 +32,6 @@ export const useChat = ({
 
     // Set up listener FIRST before sending request
     const unsubscribe = chatSocket.onMessage((response: SocketResponse) => {
-      console.log("💬 Chat message received:", response);
-
       if (response.status === "error") {
         if (
           (response.event === "GET_ROOM_CHAT_MES" && chatType === "room") ||
@@ -44,15 +45,13 @@ export const useChat = ({
 
       // Handle initial message load
       if (response.event === "GET_ROOM_CHAT_MES" && chatType === "room") {
-        console.log("📥 Room messages loaded:", response.data);
+        log("📥 Room messages loaded:", response.data);
         const roomMessages = (response.data?.messages || response.data) as any[];
         const currentUser = localStorage.getItem("user");
-        console.log("👤 Current user:", currentUser);
         const mappedMessages: Message[] = roomMessages
           .map((msg, idx) => {
             const sender = msg.name || msg.sender || "Unknown";
             const isOwnMsg = sender === currentUser;
-            console.log(`  Message ${idx}: sender='${sender}', isOwn=${isOwnMsg}, content='${msg.mes}'`);
             const content = msg.mes || msg.content || "";
             return {
               id: msg.id || idx,
@@ -69,22 +68,19 @@ export const useChat = ({
             };
           })
           .sort((a, b) => (a.id as number) - (b.id as number));
-        console.log("✅ Mapped messages (sorted):", mappedMessages);
         setMessages(mappedMessages);
-        console.log("✅ State updated with", mappedMessages.length, "messages");
+        log("✅ Loaded", mappedMessages.length, "messages");
         setLoading(false);
       }
 
       if (response.event === "GET_PEOPLE_CHAT_MES" && chatType === "people") {
-        console.log("📥 People messages loaded:", response.data);
+        log("📥 People messages loaded:", response.data);
         const peopleMessages = (response.data?.messages || response.data) as any[];
         const currentUser = localStorage.getItem("user");
-        console.log("👤 Current user:", currentUser);
         const mappedMessages: Message[] = peopleMessages
           .map((msg, idx) => {
             const sender = msg.name || msg.sender || "Unknown";
             const isOwnMsg = sender === currentUser;
-            console.log(`  Message ${idx}: sender='${sender}', isOwn=${isOwnMsg}, content='${msg.mes}'`);
             const content = msg.mes || msg.content || "";
             return {
               id: msg.id || idx,
@@ -101,15 +97,14 @@ export const useChat = ({
             };
           })
           .sort((a, b) => (a.id as number) - (b.id as number));
-        console.log("✅ Mapped messages (sorted):", mappedMessages);
         setMessages(mappedMessages);
-        console.log("✅ State updated with", mappedMessages.length, "messages");
+        log("✅ Loaded", mappedMessages.length, "messages");
         setLoading(false);
       }
 
       // Handle incoming messages from others in real-time
       if (response.event === "SEND_CHAT") {
-        console.log("📨 New message received:", response.data);
+        log("📨 New message received");
         const newMsg = response.data as any;
         if (newMsg) {
           // For room chat: check if message is for current room
@@ -138,14 +133,13 @@ export const useChat = ({
             reactions: newMsg.reactions,
             isSticker: newMsg.isSticker ?? isStickerContent(content),
           };
-          console.log("✅ Adding new message to list:", incomingMessage);
           setMessages((prev) => [...prev, incomingMessage]);
         }
       }
 
       // Also handle MESSAGE event if server sends it
       if (response.event === "MESSAGE") {
-        console.log("📨 Message event received:", response.data);
+        log("📨 Message event received");
         const newMsg = response.data as any;
         if (newMsg) {
           // For room chat: check if message is for current room
@@ -174,7 +168,6 @@ export const useChat = ({
             reactions: newMsg.reactions,
             isSticker: newMsg.isSticker ?? isStickerContent(content),
           };
-          console.log("✅ Adding new message to list:", incomingMessage);
           setMessages((prev) => [...prev, incomingMessage]);
         }
       }
@@ -182,10 +175,10 @@ export const useChat = ({
 
     // THEN send the request after listener is attached
     if (chatType === "room" && currentRoom) {
-      console.log("🔄 Loading room messages for:", currentRoom);
+      log("🔄 Loading room messages for:", currentRoom);
       chatSocket.getRoomMessages(currentRoom, 1);
     } else if (chatType === "people" && currentUser) {
-      console.log("🔄 Loading people messages for:", currentUser);
+      log("🔄 Loading people messages for:", currentUser);
       chatSocket.getPeopleMessages(currentUser, 1);
     }
 
