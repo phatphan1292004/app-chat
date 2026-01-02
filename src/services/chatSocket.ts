@@ -69,7 +69,14 @@ class ChatSocket {
       data: { event, data },
     });
 
-    console.log(`📤 Sending event: ${event}`, data);
+    // Ẩn mật khẩu khi log ra console
+    const sensitiveEvents = ["LOGIN", "REGISTER", "RE_LOGIN"];
+    if (sensitiveEvents.includes(event)) {
+      const safeData = { ...(data as Record<string, unknown>), pass: "***", code: "***" };
+      console.log(`📤 Sending event: ${event}`, safeData);
+    } else {
+      console.log(`📤 Sending event: ${event}`, data);
+    }
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.log(`⏳ WebSocket not ready, queueing message...`);

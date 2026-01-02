@@ -115,8 +115,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   };
 
   const handleJoinRoom = () => {
-    if (!searchQuery.trim()) {
-      toast.error("Vui lòng nhập tên phòng phòng!");
+    const roomToJoin = searchQuery.trim();
+    if (!roomToJoin) {
+      toast.error("Vui lòng nhập tên phòng!");
       return;
     }
 
@@ -125,11 +126,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       if (response.event === "JOIN_ROOM") {
         if (response.status === "success") {
           toast.success("Tham gia phòng thành công!");
-          setSearchQuery("");
-          // Select the joined room
-          const roomName = searchQuery.trim();
-          setSelectedChat({ name: roomName, type: 1 });
-          onChatSelect?.(roomName, null, "room");
+          // Select the joined room - dùng biến đã lưu
+          setSelectedChat({ name: roomToJoin, type: 1 });
+          onChatSelect?.(roomToJoin, null, "room");
+          // Refresh danh sách chat
+          chatSocket.getUserList();
         } else if (response.status === "error") {
           toast.error(response.mes?.toString() || "Lỗi khi tham gia phòng");
         }
@@ -137,7 +138,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       }
     });
 
-    chatSocket.joinRoom(searchQuery.trim());
+    chatSocket.joinRoom(roomToJoin);
+    setSearchQuery(""); // Reset sau khi đã lưu roomToJoin
   };
 
   const handleChatItemClick = (chat: GetUserListSuccess[0]) => {
@@ -145,6 +147,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     const chatType = chat.type === 1 ? "room" : "people";
 
     setSelectedChat({ name: chatName, type: chat.type });
+
+    // Nếu là room chat, cần join room trước
+    if (chatType === "room") {
+      const unsubscribe = chatSocket.onMessage((response) => {
+        if (response.event === "JOIN_ROOM") {
+          if (response.status === "success") {
+            console.log(`✅ Đã join room: ${chatName}`);
+          } else if (response.status === "error") {
+            // Nếu đã trong room hoặc lỗi khác, vẫn cho phép xem
+            console.log(`⚠️ Join room response: ${response.mes}`);
+          }
+          unsubscribe();
+        }
+      });
+      chatSocket.joinRoom(chatName);
+    }
+
     onChatSelect?.(
       chatType === "room" ? chatName : null,
       chatType === "people" ? chatName : null,
