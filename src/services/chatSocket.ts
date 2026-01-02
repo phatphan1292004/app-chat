@@ -2,6 +2,10 @@ import type { SocketEvent, SocketResponse } from "../types/socket";
 
 type SocketCallback = (res: SocketResponse) => void;
 
+// Chỉ log khi dev mode
+const IS_DEV = import.meta.env.DEV;
+const log = (...args: unknown[]) => IS_DEV && console.log(...args);
+
 class ChatSocket {
   private ws: WebSocket | null = null;
   private callbacks = new Set<SocketCallback>();
@@ -11,6 +15,11 @@ class ChatSocket {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 3000;
+  
+  // Debounce cho getUserList
+  private getUserListTimeout: ReturnType<typeof setTimeout> | null = null;
+  private lastGetUserListTime = 0;
+  private readonly getUserListDebounceMs = 1000; // 1 giây debounce
 
   connect() {
     if (this.ws || this.connecting) return;
@@ -19,7 +28,7 @@ class ChatSocket {
     this.ws = new WebSocket("wss://chat.longapp.site/chat/chat");
 
     this.ws.onopen = () => {
-      console.log("✅ WebSocket connected");
+      log("✅ WebSocket connected");
       this.connecting = false;
       this.reconnectAttempts = 0;
 
@@ -41,20 +50,20 @@ class ChatSocket {
     };
 
     this.ws.onclose = () => {
-      console.log("❌ WebSocket closed");
+      log("❌ WebSocket closed");
       this.ws = null;
       this.connecting = false;
       
       // Attempt reconnection
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
-        console.log(`🔄 Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+        log(`🔄 Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
         setTimeout(() => this.connect(), this.reconnectDelay);
       }
     };
 
     this.ws.onerror = (error) => {
-      console.error("⚠️ WebSocket error:", error);
+      log("⚠️ WebSocket error:", error);
     };
   }
 
@@ -73,13 +82,13 @@ class ChatSocket {
     const sensitiveEvents = ["LOGIN", "REGISTER", "RE_LOGIN"];
     if (sensitiveEvents.includes(event)) {
       const safeData = { ...(data as Record<string, unknown>), pass: "***", code: "***" };
-      console.log(`📤 Sending event: ${event}`, safeData);
+      log(`📤 Sending event: ${event}`, safeData);
     } else {
-      console.log(`📤 Sending event: ${event}`, data);
+      log(`📤 Sending event: ${event}`, data);
     }
 
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.log(`⏳ WebSocket not ready, queueing message...`);
+      log(`⏳ WebSocket not ready, queueing message...`);
       this.queue.push(payload);
       if (!this.connecting) {
         this.connect();
@@ -126,7 +135,21 @@ class ChatSocket {
   }
 
   getUserList() {
-    this.send("GET_USER_LIST", {});
+    // Debounce để tránh gọi quá nhiều lần
+    const now = Date.now();
+    if (now - this.lastGetUserListTime < this.getUserListDebounceMs) {
+      log("⏭️ getUserList debounced");
+      return;
+    }
+    
+    if (this.getUserListTimeout) {
+      clearTimeout(this.getUserListTimeout);
+    }
+    
+    this.getUserListTimeout = setTimeout(() => {
+      this.lastGetUserListTime = Date.now();
+      this.send("GET_USER_LIST", {});
+    }, 100);
   }
 
   // Message methods

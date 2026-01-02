@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { FaUserPlus } from "react-icons/fa";
 import { AiOutlineSearch } from "react-icons/ai";
 import { MdGroupAdd, MdLogin } from "react-icons/md";
@@ -38,55 +38,101 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     username: "",
     searching: false,
   });
+  
+  // Ref để theo dõi online status đã check
+  const checkedOnlineRef = useRef<Set<string>>(new Set());
+  const onlineCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingOnlineChecksRef = useRef<string[]>([]);
+  const onlineCheckQueueRef = useRef<string[]>([]); // Queue để track thứ tự check
 
-  const checkAndUpdateOnlineStatus = (username: string) => {
-    const unsubscribe = chatSocket.onMessage((response) => {
-      if (response.event === "CHECK_USER_ONLINE" && response.status === "success") {
-        setChatList((prevList) =>
-          prevList.map((chat) =>
-            chat.name === username
-              ? { ...chat, online: response.data.status }
-              : chat
-          )
-        );
-        unsubscribe();
+  // Batch check online status - gộp nhiều request thành 1 batch
+  const batchCheckOnlineStatus = useCallback((usernames: string[]) => {
+    // Lọc ra những user chưa check
+    const newUsers = usernames.filter(u => !checkedOnlineRef.current.has(u));
+    if (newUsers.length === 0) return;
+    
+    // Thêm vào pending
+    newUsers.forEach(u => {
+      if (!pendingOnlineChecksRef.current.includes(u)) {
+        pendingOnlineChecksRef.current.push(u);
       }
     });
-    chatSocket.checkUserOnline(username);
-  };
+    
+    // Clear timeout cũ và set timeout mới
+    if (onlineCheckTimeoutRef.current) {
+      clearTimeout(onlineCheckTimeoutRef.current);
+    }
+    
+    onlineCheckTimeoutRef.current = setTimeout(() => {
+      const usersToCheck = [...pendingOnlineChecksRef.current];
+      pendingOnlineChecksRef.current = [];
+      
+      // Thêm vào queue để track thứ tự response
+      onlineCheckQueueRef.current = [...usersToCheck];
+      
+      // Gọi check với delay nhỏ giữa các request để tránh spam
+      usersToCheck.forEach((username, index) => {
+        checkedOnlineRef.current.add(username);
+        setTimeout(() => {
+          chatSocket.checkUserOnline(username);
+        }, index * 200); // 200ms giữa mỗi request
+      });
+    }, 500); // Đợi 500ms để gom batch
+  }, []);
 
   useEffect(() => {
     chatSocket.getUserList();
+    
     // Lắng nghe response
     const unsubscribe = chatSocket.onMessage((response) => {
       if (response.event === "GET_USER_LIST" && response.status === "success") {
         setChatList(response.data || []);
 
-        // Check online status tuần tự cho từng user
+        // Check online status cho tất cả people chats cùng lúc (batch)
         const peopleChats = (response.data || []).filter(
           (chat) => chat.type === 0
         );
         
-        peopleChats.forEach((chat, index) => {
-          if (chat.name) {
-            setTimeout(() => {
-              checkAndUpdateOnlineStatus(chat.name);
-            }, index * 100);
-          }
-        });
+        const usernames = peopleChats
+          .map(chat => chat.name)
+          .filter((name): name is string => !!name);
+        
+        if (usernames.length > 0) {
+          batchCheckOnlineStatus(usernames);
+        }
+      }
+      
+      // Xử lý response CHECK_USER_ONLINE
+      if (response.event === "CHECK_USER_ONLINE" && response.status === "success") {
+        // Lấy username từ queue (FIFO)
+        const username = onlineCheckQueueRef.current.shift();
+        if (username) {
+          setChatList((prevList) =>
+            prevList.map((chat) => 
+              chat.name === username
+                ? { ...chat, online: response.data?.status }
+                : chat
+            )
+          );
+        }
       }
     });
 
     // Check online status định kỳ mỗi 60 giây
     const interval = setInterval(() => {
+      // Reset checked set để cho phép check lại
+      checkedOnlineRef.current.clear();
       chatSocket.getUserList();
     }, 60000);
 
     return () => {
       unsubscribe();
       clearInterval(interval);
+      if (onlineCheckTimeoutRef.current) {
+        clearTimeout(onlineCheckTimeoutRef.current);
+      }
     };
-  }, []);
+  }, [batchCheckOnlineStatus]);
 
   const handleCreateRoom = () => {
     if (!roomName.trim()) {
