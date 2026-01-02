@@ -7,7 +7,7 @@ import Modal from "./Modal";
 import { chatSocket } from "../services/chatSocket";
 import { toast } from "react-toastify";
 import { formatTime } from "../utils";
-import type { GetUserListSuccess } from "../types/socket";
+import type { GetUserListSuccess, CheckUserExistSuccess } from "../types/socket";
 
 interface SidebarProps {
   onChatSelect?: (
@@ -17,6 +17,12 @@ interface SidebarProps {
   ) => void;
 }
 
+interface SearchResult {
+  found: boolean;
+  username: string;
+  searching: boolean;
+}
+
 const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const [openAddFriend, setOpenAddFriend] = useState(false);
   const [openCreateGroup, setOpenCreateGroup] = useState(false);
@@ -24,6 +30,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [chatList, setChatList] = useState<GetUserListSuccess>([]);
   const [selectedChat, setSelectedChat] = useState<{ name: string; type: number } | null>(null);
+  
+  // State cho tìm kiếm bạn bè
+  const [friendSearchQuery, setFriendSearchQuery] = useState("");
+  const [searchResult, setSearchResult] = useState<SearchResult>({
+    found: false,
+    username: "",
+    searching: false,
+  });
 
   const checkAndUpdateOnlineStatus = (username: string) => {
     const unsubscribe = chatSocket.onMessage((response) => {
@@ -138,6 +152,82 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     );
   };
 
+  // Tìm kiếm người dùng
+  const handleSearchUser = () => {
+    const username = friendSearchQuery.trim();
+    if (!username) {
+      toast.error("Vui lòng nhập tên người dùng!");
+      return;
+    }
+
+    // Không cho phép tìm chính mình
+    const currentUser = localStorage.getItem("user");
+    if (username.toLowerCase() === currentUser?.toLowerCase()) {
+      toast.error("Bạn không thể tìm chính mình!");
+      return;
+    }
+
+    setSearchResult({ found: false, username: "", searching: true });
+
+    const unsubscribe = chatSocket.onMessage((response) => {
+      if (response.event === "CHECK_USER_EXIST") {
+        if (response.status === "success") {
+          const data = response.data as CheckUserExistSuccess;
+          if (data.status) {
+            setSearchResult({
+              found: true,
+              username: username,
+              searching: false,
+            });
+            toast.success(`Đã tìm thấy người dùng "${username}"!`);
+          } else {
+            setSearchResult({
+              found: false,
+              username: username,
+              searching: false,
+            });
+            toast.error(`Không tìm thấy người dùng "${username}"!`);
+          }
+        } else {
+          setSearchResult({
+            found: false,
+            username: "",
+            searching: false,
+          });
+          toast.error(response.mes?.toString() || "Lỗi khi tìm kiếm");
+        }
+        unsubscribe();
+      }
+    });
+
+    chatSocket.checkUserExist(username);
+  };
+
+  // Bắt đầu chat với người dùng đã tìm thấy
+  const handleStartChat = () => {
+    if (!searchResult.found || !searchResult.username) return;
+
+    const username = searchResult.username;
+    
+    // Chọn user để chat
+    setSelectedChat({ name: username, type: 0 });
+    onChatSelect?.(null, username, "people");
+    
+    // Reset modal state
+    setFriendSearchQuery("");
+    setSearchResult({ found: false, username: "", searching: false });
+    setOpenAddFriend(false);
+    
+    toast.success(`Đang mở cuộc trò chuyện với ${username}`);
+  };
+
+  // Reset search state khi đóng modal
+  const handleCloseAddFriend = () => {
+    setFriendSearchQuery("");
+    setSearchResult({ found: false, username: "", searching: false });
+    setOpenAddFriend(false);
+  };
+
   return (
     <div className="w-90 h-screen fixed top-0 left-0 mt-18 bg-white flex flex-col border-r border-gray-200 z-50">
       {/* Search bar + icons */}
@@ -211,18 +301,57 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       {/* Modal Add Friend */}
       <Modal
         open={openAddFriend}
-        onClose={() => setOpenAddFriend(false)}
-        title="Thêm bạn"
+        onClose={handleCloseAddFriend}
+        title="Tìm bạn để nhắn tin"
       >
         <div className="flex flex-col gap-4">
-          <input
-            type="text"
-            placeholder="Nhập tên người dùng..."
-            className="w-full text-lg px-4 py-2 rounded bg-primary-1/10 text-white placeholder-gray-400 focus:outline-none"
-          />
-          <button className="bg-primary-1 text-white font-semibold py-2 rounded">
-            Tìm kiếm
-          </button>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Nhập tên người dùng..."
+              value={friendSearchQuery}
+              onChange={(e) => setFriendSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearchUser()}
+              className="flex-1 text-lg px-4 py-2 rounded bg-primary-1/10 text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-primary-1"
+            />
+            <button
+              onClick={handleSearchUser}
+              disabled={searchResult.searching}
+              className="bg-primary-1 text-white font-semibold px-4 py-2 rounded hover:bg-primary-1/80 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {searchResult.searching ? "Đang tìm..." : "Tìm kiếm"}
+            </button>
+          </div>
+
+          {/* Kết quả tìm kiếm */}
+          {searchResult.username && !searchResult.searching && (
+            <div className="mt-2 p-4 rounded-lg bg-gray-100">
+              {searchResult.found ? (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary-1 flex items-center justify-center text-white font-bold text-lg">
+                      {searchResult.username.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{searchResult.username}</p>
+                      <p className="text-sm text-green-600">Người dùng tồn tại</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleStartChat}
+                    className="bg-green-500 text-white font-semibold px-4 py-2 rounded hover:bg-green-600"
+                  >
+                    Nhắn tin
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-2">
+                  <p className="text-gray-600">Không tìm thấy người dùng "{searchResult.username}"</p>
+                  <p className="text-sm text-gray-400 mt-1">Vui lòng kiểm tra lại tên người dùng</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </Modal>
 
