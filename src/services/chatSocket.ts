@@ -114,6 +114,10 @@ class ChatSocket {
     this.send("CHECK_USER", { user });
   }
 
+  checkUserExist(user: string) {
+    this.send("CHECK_USER_EXIST", { user });
+  }
+
   getUserList() {
     this.send("GET_USER_LIST", {});
   }

@@ -11,6 +11,7 @@ export type SocketEvent =
   | "JOIN_ROOM"
   | "GET_USER_LIST"
   | "CHECK_USER"
+  | "CHECK_USER_EXIST"
   | "SEND_CHAT"
   | "CHECK_USER_ONLINE";
 
@@ -66,6 +67,11 @@ export interface CheckUserSuccess {
   user?: string;
 }
 
+export interface CheckUserExistSuccess {
+  status: boolean;
+  user?: string;
+}
+
 export interface SendChatSuccess {
   id?: string;
   timestamp?: string;
@@ -91,6 +97,7 @@ export type SocketSuccessMap = {
   JOIN_ROOM: JoinRoomSuccess;
   GET_USER_LIST: GetUserListSuccess;
   CHECK_USER: CheckUserSuccess;
+  CHECK_USER_EXIST: CheckUserExistSuccess;
   SEND_CHAT: SendChatSuccess;
   CHECK_USER_ONLINE: { status: boolean, user: string};
 };
