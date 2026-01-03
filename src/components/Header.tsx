@@ -7,7 +7,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   const [showMenu, setShowMenu] = useState(false);
-
+  const username = localStorage.getItem("user") || "YOU";
   const handleLogoutClick = () => {
     onLogout?.();
     setShowMenu(false);
@@ -32,10 +32,10 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
         </div>
 
         {showMenu && (
-          <div className="absolute right-0 mt-2 w-48 bg-[#222E35] rounded-lg shadow-lg z-100">
+          <div className="absolute right-0 mt-2 w-56 bg-[#222E35] rounded-lg shadow-lg z-100">
             <div className="p-3 border-b border-gray-600">
-              <p className="text-white font-semibold">YOU</p>
-              <p className="text-gray-400 text-sm">user@example.com</p>
+              <p className="text-white font-semibold">{username}</p>
+              <p className="text-gray-400 text-sm">{username}@hcmuaf.edu.com</p>
             </div>
             <button
               onClick={handleLogoutClick}

@@ -37,13 +37,13 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
       <div className="flex min-h-screen items-center justify-center from-[#eaf2ff] to-white">
         <div className="w-[360px] rounded-xl bg-white px-8 py-7 shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
-          <h2 className="mb-6 text-center text-[22px] font-semibold text-[#0068ff]">
+          <h2 className="mb-6 text-center text-[22px] font-semibold text-primary-1">
             {isLogin ? "Đăng nhập" : "Đăng ký"}
           </h2>
 
           <input
             className="mb-3 h-11 w-full rounded-lg border border-gray-300 px-3 text-sm
-                       focus:border-[#0068ff] focus:ring-1 focus:ring-[#0068ff] focus:outline-none"
+                       focus:border-primary-1 focus:ring-1 focus:ring-primary-1 focus:outline-none"
             placeholder="Tài khoản"
             value={user}
             onChange={(e) => setUser(e.target.value)}
@@ -53,7 +53,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             <input
               type={showPass ? "text" : "password"}
               className="h-11 w-full rounded-lg border border-gray-300 px-3 pr-12 text-sm
-                         focus:border-[#0068ff] focus:ring-1 focus:ring-[#0068ff] focus:outline-none"
+                         focus:border-primary-1 focus:ring-1 focus:ring-primary-1 focus:outline-none"
               placeholder="Mật khẩu"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
@@ -104,9 +104,9 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           <button
             onClick={submit}
             disabled={loading}
-            className="w-full rounded-lg bg-[#0068ff] py-2.5
+            className="w-full rounded-lg bg-primary-1 py-2.5
                        text-sm font-semibold text-white
-                       transition hover:bg-[#0053cc]
+                       transition hover:bg-primary-1/80
                        disabled:opacity-60"
           >
             {loading ? "Đang xử lý..." : isLogin ? "Đăng nhập" : "Đăng ký"}
@@ -116,7 +116,7 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
             {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}
             <span
               className="ml-1 cursor-pointer font-medium
-                         text-[#0068ff] hover:underline"
+                         text-primary-1 hover:underline"
               onClick={toggleMode}
             >
               {isLogin ? "Đăng ký" : "Đăng nhập"}

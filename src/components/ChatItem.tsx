@@ -1,4 +1,5 @@
 import React from "react";
+import { MdGroups } from "react-icons/md";
 
 interface ChatItemProps {
   avatar: string;
@@ -21,7 +22,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
     <div className="flex items-center px-4 py-3 hover:bg-primary-1/10">
       <div className="relative w-12 h-12 mr-3">
         <div className="w-12 h-12 rounded-full bg-primary-1 flex items-center justify-center text-white font-bold">
-          {avatar}
+          {type === 1 ? <MdGroups size={24} /> : avatar}
         </div>
         {type === 0 &&  (
           <div
