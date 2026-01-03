@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { chatSocket } from "../services/chatSocket";
 import type { SocketResponse } from "../types/socket";
+import { toast } from "react-toastify";
 
 interface UseAuthProps {
   onLoginSuccess?: () => void;
@@ -15,19 +16,46 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
   const [pass, setPass] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const loadingToastIdRef = useRef<ReturnType<typeof toast.loading> | null>(
+    null
+  );
+
+  const lastMsgRef = useRef<{ key: string; at: number } | null>(null);
+  const shouldSkipToast = (key: string, ms = 800) => {
+    const now = Date.now();
+    const last = lastMsgRef.current;
+    if (last && last.key === key && now - last.at < ms) return true;
+    lastMsgRef.current = { key, at: now };
+    return false;
+  };
+
+  const dismissLoadingToast = () => {
+    if (loadingToastIdRef.current) {
+      toast.dismiss(loadingToastIdRef.current);
+      loadingToastIdRef.current = null;
+    }
+  };
 
   useEffect(() => {
     const off = chatSocket.onMessage((res: SocketResponse) => {
       if (res.status === "error") {
-        setError(res.mes || "Lỗi không xác định");
         setLoading(false);
+        dismissLoadingToast();
+        const key = `err:${res.event}:${res.mes ?? ""}`;
+        if (!shouldSkipToast(key)) {
+          toast.error(res.mes || "Lỗi không xác định!");
+        }
         return;
       }
 
       if (res.event === "REGISTER") {
-        setSuccess("Đăng ký thành công! Vui lòng đăng nhập.");
+        dismissLoadingToast();
+
+        const key = "ok:REGISTER";
+        if (!shouldSkipToast(key)) {
+          toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
+        }
+
         setIsLogin(true);
         setUser("");
         setPass("");
@@ -35,10 +63,14 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
       }
 
       if (res.event === "LOGIN") {
-        setError(null);
+        dismissLoadingToast();
         const code = res.data?.RE_LOGIN_CODE;
         if (code) {
           localStorage.setItem("relogin_code", code);
+        }
+        const key = "ok:LOGIN";
+        if (!shouldSkipToast(key)) {
+          toast.success("Đăng nhập thành công!");
         }
         setLoading(false);
         onLoginSuccess?.();
@@ -50,15 +82,18 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
 
   const submit = () => {
     if (!user || !pass) {
-      setError("Vui lòng nhập đầy đủ thông tin");
+      toast.warning("Vui lòng nhập đầy đủ thông tin!");
       return;
     }
 
     setLoading(true);
-    setError(null);
-    setSuccess(null);
     localStorage.setItem("user", user);
-    
+
+    dismissLoadingToast();
+    loadingToastIdRef.current = toast.loading(
+      isLogin ? "Đang đăng nhập..." : "Đang đăng ký..."
+    );
+
     if (isLogin) {
       chatSocket.login(user, pass);
     } else {
@@ -70,8 +105,8 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
     const next = !isLogin;
     setIsLogin(next);
     window.history.pushState({}, "", next ? "/login" : "/register");
-    setError(null);
-    setSuccess(null);
+    setPass("");
+    dismissLoadingToast();
   };
 
   return {
@@ -80,8 +115,6 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
     pass,
     showPass,
     loading,
-    error,
-    success,
     setUser,
     setPass,
     setShowPass,
