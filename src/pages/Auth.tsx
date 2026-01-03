@@ -11,8 +11,6 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
     pass,
     showPass,
     loading,
-    error,
-    success,
     setUser,
     setPass,
     setShowPass,
@@ -22,19 +20,6 @@ const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
 
   return (
     <>
-      <div className="fixed right-5 top-5 z-50 space-y-2">
-        {error && (
-          <div className="rounded-lg bg-red-500 px-4 py-2 text-sm text-white shadow">
-            ❌ {error}
-          </div>
-        )}
-        {success && (
-          <div className="rounded-lg bg-green-500 px-4 py-2 text-sm text-white shadow">
-            ✅ {success}
-          </div>
-        )}
-      </div>
-
       <div className="flex min-h-screen items-center justify-center from-[#eaf2ff] to-white">
         <div className="w-[360px] rounded-xl bg-white px-8 py-7 shadow-[0_6px_24px_rgba(0,0,0,0.08)]">
           <h2 className="mb-6 text-center text-[22px] font-semibold text-primary-1">
