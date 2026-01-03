@@ -36,6 +36,30 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
     }
   };
 
+  const mapAuthError = (msg?: string) => {
+    if (!msg) return "Có lỗi xảy ra";
+
+    const m = msg.toLowerCase();
+
+    if (m.includes("wrong username") || m.includes("wrong password")) {
+      return "Sai tài khoản hoặc mật khẩu";
+    }
+
+    if (m.includes("user not found")) {
+      return "Tài khoản không tồn tại";
+    }
+
+    if (m.includes("already exists")) {
+      return "Tài khoản đã tồn tại";
+    }
+
+    if (m.includes("login error")) {
+      return "Đăng nhập thất bại";
+    }
+
+    return "Có lỗi xảy ra, vui lòng thử lại";
+  };
+
   useEffect(() => {
     const off = chatSocket.onMessage((res: SocketResponse) => {
       if (res.status === "error") {
@@ -43,7 +67,7 @@ export const useAuth = ({ onLoginSuccess }: UseAuthProps) => {
         dismissLoadingToast();
         const key = `err:${res.event}:${res.mes ?? ""}`;
         if (!shouldSkipToast(key)) {
-          toast.error(res.mes || "Lỗi không xác định!");
+          toast.error(mapAuthError(res.mes) || "Lỗi không xác định!");
         }
         return;
       }
