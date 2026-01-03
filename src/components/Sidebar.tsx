@@ -7,7 +7,10 @@ import Modal from "./Modal";
 import { chatSocket } from "../services/chatSocket";
 import { toast } from "react-toastify";
 import { formatTime } from "../utils";
-import type { GetUserListSuccess, CheckUserExistSuccess } from "../types/socket";
+import type {
+  GetUserListSuccess,
+  CheckUserExistSuccess,
+} from "../types/socket";
 
 interface SidebarProps {
   onChatSelect?: (
@@ -29,8 +32,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const [roomName, setRoomName] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [chatList, setChatList] = useState<GetUserListSuccess>([]);
-  const [selectedChat, setSelectedChat] = useState<{ name: string; type: number } | null>(null);
-  
+  const [selectedChat, setSelectedChat] = useState<{
+    name: string;
+    type: number;
+  } | null>(null);
+
   // State cho tìm kiếm bạn bè
   const [friendSearchQuery, setFriendSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState<SearchResult>({
@@ -38,38 +44,40 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     username: "",
     searching: false,
   });
-  
+
   // Ref để theo dõi online status đã check
   const checkedOnlineRef = useRef<Set<string>>(new Set());
-  const onlineCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onlineCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const pendingOnlineChecksRef = useRef<string[]>([]);
   const onlineCheckQueueRef = useRef<string[]>([]); // Queue để track thứ tự check
 
   // Batch check online status - gộp nhiều request thành 1 batch
   const batchCheckOnlineStatus = useCallback((usernames: string[]) => {
     // Lọc ra những user chưa check
-    const newUsers = usernames.filter(u => !checkedOnlineRef.current.has(u));
+    const newUsers = usernames.filter((u) => !checkedOnlineRef.current.has(u));
     if (newUsers.length === 0) return;
-    
+
     // Thêm vào pending
-    newUsers.forEach(u => {
+    newUsers.forEach((u) => {
       if (!pendingOnlineChecksRef.current.includes(u)) {
         pendingOnlineChecksRef.current.push(u);
       }
     });
-    
+
     // Clear timeout cũ và set timeout mới
     if (onlineCheckTimeoutRef.current) {
       clearTimeout(onlineCheckTimeoutRef.current);
     }
-    
+
     onlineCheckTimeoutRef.current = setTimeout(() => {
       const usersToCheck = [...pendingOnlineChecksRef.current];
       pendingOnlineChecksRef.current = [];
-      
+
       // Thêm vào queue để track thứ tự response
       onlineCheckQueueRef.current = [...usersToCheck];
-      
+
       // Gọi check với delay nhỏ giữa các request để tránh spam
       usersToCheck.forEach((username, index) => {
         checkedOnlineRef.current.add(username);
@@ -82,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
 
   useEffect(() => {
     chatSocket.getUserList();
-    
+
     // Lắng nghe response
     const unsubscribe = chatSocket.onMessage((response) => {
       if (response.event === "GET_USER_LIST" && response.status === "success") {
@@ -92,23 +100,26 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
         const peopleChats = (response.data || []).filter(
           (chat) => chat.type === 0
         );
-        
+
         const usernames = peopleChats
-          .map(chat => chat.name)
+          .map((chat) => chat.name)
           .filter((name): name is string => !!name);
-        
+
         if (usernames.length > 0) {
           batchCheckOnlineStatus(usernames);
         }
       }
-      
+
       // Xử lý response CHECK_USER_ONLINE
-      if (response.event === "CHECK_USER_ONLINE" && response.status === "success") {
+      if (
+        response.event === "CHECK_USER_ONLINE" &&
+        response.status === "success"
+      ) {
         // Lấy username từ queue (FIFO)
         const username = onlineCheckQueueRef.current.shift();
         if (username) {
           setChatList((prevList) =>
-            prevList.map((chat) => 
+            prevList.map((chat) =>
               chat.name === username
                 ? { ...chat, online: response.data?.status }
                 : chat
@@ -120,7 +131,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
 
     // Check online status định kỳ mỗi 60 giây
     const interval = setInterval(() => {
-      // Reset checked set để cho phép check lại
       checkedOnlineRef.current.clear();
       chatSocket.getUserList();
     }, 60000);
@@ -146,18 +156,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
           toast.success("Tạo phòng thành công!");
           setRoomName("");
           setOpenCreateGroup(false);
+          chatSocket.getUserList();
         } else if (response.status === "error") {
           toast.error(response.mes?.toString() || "Lỗi khi tạo nhóm");
-        } else {
-          toast.success("Tạo phòng thành công!");
-          setRoomName("");
-          setOpenCreateGroup(false);
         }
         unsubscribe();
       }
     });
 
     chatSocket.createRoom(roomName.trim());
+    setRoomName("");
+    setOpenCreateGroup(false);
+    // Refresh danh sách chat
+    chatSocket.getUserList();
   };
 
   const handleJoinRoom = () => {
@@ -168,14 +179,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     }
 
     const unsubscribe = chatSocket.onMessage((response) => {
-      console.log("response", response);
       if (response.event === "JOIN_ROOM") {
         if (response.status === "success") {
           toast.success("Tham gia phòng thành công!");
-          // Select the joined room - dùng biến đã lưu
           setSelectedChat({ name: roomToJoin, type: 1 });
           onChatSelect?.(roomToJoin, null, "room");
-          // Refresh danh sách chat
           chatSocket.getUserList();
         } else if (response.status === "error") {
           toast.error(response.mes?.toString() || "Lỗi khi tham gia phòng");
@@ -185,7 +193,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     });
 
     chatSocket.joinRoom(roomToJoin);
-    setSearchQuery(""); // Reset sau khi đã lưu roomToJoin
+    chatSocket.getUserList();
+    setSearchQuery("");
   };
 
   const handleChatItemClick = (chat: GetUserListSuccess[0]) => {
@@ -199,10 +208,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       const unsubscribe = chatSocket.onMessage((response) => {
         if (response.event === "JOIN_ROOM") {
           if (response.status === "success") {
-            console.log(`✅ Đã join room: ${chatName}`);
+            toast.success(`Đã join room: ${chatName}`);
           } else if (response.status === "error") {
-            // Nếu đã trong room hoặc lỗi khác, vẫn cho phép xem
-            console.log(`⚠️ Join room response: ${response.mes}`);
+            toast.error(`Join room failed: ${response.mes}`);
           }
           unsubscribe();
         }
@@ -273,16 +281,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     if (!searchResult.found || !searchResult.username) return;
 
     const username = searchResult.username;
-    
+
     // Chọn user để chat
     setSelectedChat({ name: username, type: 0 });
     onChatSelect?.(null, username, "people");
-    
+
     // Reset modal state
     setFriendSearchQuery("");
     setSearchResult({ found: false, username: "", searching: false });
     setOpenAddFriend(false);
-    
+
     toast.success(`Đang mở cuộc trò chuyện với ${username}`);
   };
 
@@ -296,7 +304,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   return (
     <div className="w-90 h-screen fixed top-0 left-0 mt-18 bg-white flex flex-col border-r border-gray-200 z-50">
       {/* Search bar + icons */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="pt-4 pb-3 px-4 border-b border-gray-200">
         {/* Search input */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -322,12 +330,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
           <button
             className="p-2 rounded hover:bg-primary-1/10 text-gray-600"
             onClick={() => setOpenAddFriend(true)}
+            title="Add friend"
           >
             <FaUserPlus size={18} />
           </button>
           <button
             className="p-2 rounded hover:bg-primary-1/10 text-gray-600"
             onClick={() => setOpenCreateGroup(true)}
+            title="Create Group"
           >
             <MdGroupAdd size={18} />
           </button>
@@ -338,12 +348,18 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       <div className="flex-1 overflow-y-auto">
         {chatList.length > 0 ? (
           chatList.map((chat, idx) => {
-            const isSelected = selectedChat?.name === chat.name && selectedChat?.type === chat.type;
+            const isSelected =
+              selectedChat?.name === chat.name &&
+              selectedChat?.type === chat.type;
             return (
               <div
-                key={`${chat.name || "unknown"}-${chat.actionTime || idx}-${idx}`}
+                key={`${chat.name || "unknown"}-${
+                  chat.actionTime || idx
+                }-${idx}`}
                 onClick={() => handleChatItemClick(chat)}
-                className={`cursor-pointer ${isSelected ? "bg-primary-1/20" : ""}`}
+                className={`cursor-pointer ${
+                  isSelected ? "bg-primary-1/20" : ""
+                }`}
               >
                 <ChatItem
                   avatar={chat.name?.substring(0, 2).toUpperCase() || "??"}
@@ -398,8 +414,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
                       {searchResult.username.substring(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-800">{searchResult.username}</p>
-                      <p className="text-sm text-green-600">Người dùng tồn tại</p>
+                      <p className="font-semibold text-gray-800">
+                        {searchResult.username}
+                      </p>
+                      <p className="text-sm text-green-600">
+                        Người dùng tồn tại
+                      </p>
                     </div>
                   </div>
                   <button
@@ -411,8 +431,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
                 </div>
               ) : (
                 <div className="text-center py-2">
-                  <p className="text-gray-600">Không tìm thấy người dùng "{searchResult.username}"</p>
-                  <p className="text-sm text-gray-400 mt-1">Vui lòng kiểm tra lại tên người dùng</p>
+                  <p className="text-gray-600">
+                    Không tìm thấy người dùng "{searchResult.username}"
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Vui lòng kiểm tra lại tên người dùng
+                  </p>
                 </div>
               )}
             </div>
