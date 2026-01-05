@@ -88,10 +88,8 @@ const MessageItem: React.FC<MessageItemProps> = ({
 								: "bg-white text-black border border-gray-200 shadow-md"
 						} px-4 py-2 rounded-lg`}
 					>
-						{!message.isOwn && showAvatar && (
-							<p className="text-xs text-gray-600 mb-1 font-semibold">{message.sender}</p>
-						)}
 						<p className="text-sm">{message.content}</p>
+						<p className="text-[10px] text-gray-400 mt-1 text-right">{message.timestamp}</p>
 
 						{/* Reactions Display */}
 						{message.reactions && Object.keys(message.reactions).length > 0 && (

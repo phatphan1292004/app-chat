@@ -48,12 +48,14 @@ export interface ChatMessage {
 
 export interface RoomChatMessagesSuccess {
   messages?: ChatMessage[];
+  chatData?: ChatMessage[]; // Server returns chatData instead of messages
   roomName?: string;
   page?: number;
 }
 
 export interface PeopleChatMessagesSuccess {
   messages?: ChatMessage[];
+  chatData?: ChatMessage[]; // Server returns chatData instead of messages
   username?: string;
   page?: number;
 }

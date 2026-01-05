@@ -36,6 +36,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     chatType,
   });
 
+  console.log("ChatView rendered with messages:", messages);
+
   const [inputValue, setInputValue] = useState("");
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);

@@ -51,9 +51,9 @@ export const useChat = ({
         let roomMessages: RawMessage[] = [];
         if (Array.isArray(response.data)) {
           roomMessages = response.data;
-        } else if (response.data?.messages && Array.isArray(response.data.messages)) {
-          roomMessages = response.data.messages;
-        }
+        } else if (response.data?.chatData && Array.isArray(response.data.chatData)) {
+          roomMessages = response.data.chatData;
+        } 
         const mappedMessages = mapRawMessages(roomMessages);
         setMessages(() => mappedMessages);
         log("✅ Loaded", mappedMessages.length, "messages");
