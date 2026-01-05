@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { chatSocket } from "../services/chatSocket";
-import { isStickerContent } from "../utils";
+import { mapRawMessages, createMessageFromRaw, type RawMessage, isStickerContent } from "../utils";
 import type { SocketResponse } from "../types/socket";
 import type { Message } from "../types/message";
 
@@ -24,21 +24,22 @@ export const useChat = ({
 
   // Load messages when room or user changes
   useEffect(() => {
-    if (!currentRoom && !currentUser) return;
+    if (!currentRoom && !currentUser) {
+      return;
+    }
 
-    setLoading(true);
-    setError(null);
-    setMessages([]);
+    let isSubscribed = true;
 
     // Set up listener FIRST before sending request
     const unsubscribe = chatSocket.onMessage((response: SocketResponse) => {
+      if (!isSubscribed) return;
       if (response.status === "error") {
         if (
           (response.event === "GET_ROOM_CHAT_MES" && chatType === "room") ||
           (response.event === "GET_PEOPLE_CHAT_MES" && chatType === "people")
         ) {
-          setError(response.mes || "Failed to load messages");
-          setLoading(false);
+          setError(() => response.mes || "Failed to load messages");
+          setLoading(() => false);
         }
         return;
       }
@@ -46,131 +47,62 @@ export const useChat = ({
       // Handle initial message load
       if (response.event === "GET_ROOM_CHAT_MES" && chatType === "room") {
         log("📥 Room messages loaded:", response.data);
-        const roomMessages = (response.data?.messages || response.data) as any[];
-        const currentUser = localStorage.getItem("user");
-        const mappedMessages: Message[] = roomMessages
-          .map((msg, idx) => {
-            const sender = msg.name || msg.sender || "Unknown";
-            const isOwnMsg = sender === currentUser;
-            const content = msg.mes || msg.content || "";
-            return {
-              id: msg.id || idx,
-              sender,
-              avatar: msg.avatar || sender.substring(0, 2).toUpperCase(),
-              content,
-              timestamp: msg.timestamp || new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              isOwn: isOwnMsg,
-              reactions: msg.reactions,
-              isSticker: msg.isSticker ?? isStickerContent(content),
-            };
-          })
-          .sort((a, b) => (a.id as number) - (b.id as number));
-        setMessages(mappedMessages);
+        // Safely extract messages array
+        let roomMessages: RawMessage[] = [];
+        if (Array.isArray(response.data)) {
+          roomMessages = response.data;
+        } else if (response.data?.messages && Array.isArray(response.data.messages)) {
+          roomMessages = response.data.messages;
+        }
+        const mappedMessages = mapRawMessages(roomMessages);
+        setMessages(() => mappedMessages);
         log("✅ Loaded", mappedMessages.length, "messages");
-        setLoading(false);
+        setLoading(() => false);
       }
 
       if (response.event === "GET_PEOPLE_CHAT_MES" && chatType === "people") {
         log("📥 People messages loaded:", response.data);
-        const peopleMessages = (response.data?.messages || response.data) as any[];
-        const currentUser = localStorage.getItem("user");
-        const mappedMessages: Message[] = peopleMessages
-          .map((msg, idx) => {
-            const sender = msg.name || msg.sender || "Unknown";
-            const isOwnMsg = sender === currentUser;
-            const content = msg.mes || msg.content || "";
-            return {
-              id: msg.id || idx,
-              sender,
-              avatar: msg.avatar || sender.substring(0, 2).toUpperCase(),
-              content,
-              timestamp: msg.timestamp || new Date().toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              isOwn: isOwnMsg,
-              reactions: msg.reactions,
-              isSticker: msg.isSticker ?? isStickerContent(content),
-            };
-          })
-          .sort((a, b) => (a.id as number) - (b.id as number));
-        setMessages(mappedMessages);
+        // Safely extract messages array
+        let peopleMessages: RawMessage[] = [];
+        if (Array.isArray(response.data)) {
+          peopleMessages = response.data;
+        } else if (response.data?.messages && Array.isArray(response.data.messages)) {
+          peopleMessages = response.data.messages;
+        }
+        const mappedMessages = mapRawMessages(peopleMessages);
+        setMessages(() => mappedMessages);
         log("✅ Loaded", mappedMessages.length, "messages");
-        setLoading(false);
+        setLoading(() => false);
       }
 
       // Handle incoming messages from others in real-time
-      if (response.event === "SEND_CHAT") {
+      if (response.event === "SEND_CHAT" || response.event === "MESSAGE") {
         log("📨 New message received");
-        const newMsg = response.data as any;
-        if (newMsg) {
-          // For room chat: check if message is for current room
-          if (chatType === "room" && currentRoom) {
-            if (newMsg.to !== currentRoom) return; // Not for current room
-          }
-          // For people chat: check if message is from/to current user
-          if (chatType === "people" && currentUser) {
-            const isFromCurrentUser = newMsg.name === currentUser;
-            const isToCurrentUser = newMsg.to === currentUser;
-            if (!isFromCurrentUser && !isToCurrentUser) return; // Not relevant
-          }
+        const newMsg = response.data as RawMessage;
+        if (!newMsg) return;
 
-          const sender = newMsg.name || newMsg.sender || "Unknown";
-          const content = newMsg.mes || newMsg.content || "";
-          const incomingMessage: Message = {
-            id: newMsg.id || Date.now(),
-            sender,
-            avatar: newMsg.avatar || sender.substring(0, 2).toUpperCase(),
-            content,
-            timestamp: newMsg.timestamp || new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            isOwn: sender === localStorage.getItem("user"),
-            reactions: newMsg.reactions,
-            isSticker: newMsg.isSticker ?? isStickerContent(content),
-          };
-          setMessages((prev) => [...prev, incomingMessage]);
+        // For room chat: check if message is for current room
+        if (chatType === "room" && currentRoom && newMsg.to !== currentRoom) {
+          return; // Not for current room
         }
-      }
-
-      // Also handle MESSAGE event if server sends it
-      if (response.event === "MESSAGE") {
-        log("📨 Message event received");
-        const newMsg = response.data as any;
-        if (newMsg) {
-          // For room chat: check if message is for current room
-          if (chatType === "room" && currentRoom) {
-            if (newMsg.to !== currentRoom) return; // Not for current room
-          }
-          // For people chat: check if message is from/to current user
-          if (chatType === "people" && currentUser) {
-            const isFromCurrentUser = newMsg.name === currentUser;
-            const isToCurrentUser = newMsg.to === currentUser;
-            if (!isFromCurrentUser && !isToCurrentUser) return; // Not relevant
-          }
-
-          const sender = newMsg.name || newMsg.sender || "Unknown";
-          const content = newMsg.mes || newMsg.content || "";
-          const incomingMessage: Message = {
-            id: newMsg.id || Date.now(),
-            sender,
-            avatar: newMsg.avatar || sender.substring(0, 2).toUpperCase(),
-            content,
-            timestamp: newMsg.timestamp || new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-            isOwn: sender === localStorage.getItem("user"),
-            reactions: newMsg.reactions,
-            isSticker: newMsg.isSticker ?? isStickerContent(content),
-          };
-          setMessages((prev) => [...prev, incomingMessage]);
+        
+        // For people chat: check if message is from/to current user
+        if (chatType === "people" && currentUser) {
+          const isFromCurrentUser = newMsg.name === currentUser;
+          const isToCurrentUser = newMsg.to === currentUser;
+          if (!isFromCurrentUser && !isToCurrentUser) return; // Not relevant
         }
+
+        const incomingMessage = createMessageFromRaw(newMsg);
+        setMessages((prev) => [...prev, incomingMessage]);
       }
+    });
+
+    // Reset state before sending request (use queueMicrotask to avoid cascading render warning)
+    queueMicrotask(() => {
+      setError(null);
+      setMessages([]);
+      setLoading(true);
     });
 
     // THEN send the request after listener is attached
@@ -182,7 +114,11 @@ export const useChat = ({
       chatSocket.getPeopleMessages(currentUser, 1);
     }
 
-    return unsubscribe;
+    return () => {
+      isSubscribed = false;
+      unsubscribe();
+      setLoading(false);
+    };
   }, [currentRoom, currentUser, chatType]);
 
   const sendMessage = useCallback(

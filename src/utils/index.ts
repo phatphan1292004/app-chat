@@ -41,3 +41,78 @@ export const isStickerContent = (s: string) =>
   isImageDataUrl(s) || isImageHttpUrl(s) || isEmojiOnly(s);
 
 export const isImageLike = (s: string) => isImageDataUrl(s) || isImageHttpUrl(s);
+
+// Message transformation helpers
+export interface RawMessage {
+  id?: number;
+  name?: string;
+  sender?: string;
+  avatar?: string;
+  mes?: string;
+  content?: string;
+  timestamp?: string;
+  to?: string;
+  reactions?: Record<string, number>;
+  isSticker?: boolean;
+}
+
+export interface Message {
+  id: number;
+  sender: string;
+  avatar: string;
+  content: string;
+  timestamp: string;
+  isOwn: boolean;
+  reactions?: Record<string, number>;
+  isSticker?: boolean;
+}
+
+// Helper function to map raw messages to Message type
+export const mapRawMessages = (rawMessages: RawMessage[]): Message[] => {
+  // Validate input is array
+  if (!Array.isArray(rawMessages)) {
+    console.warn("mapRawMessages received non-array:", rawMessages);
+    return [];
+  }
+
+  const currentUser = localStorage.getItem("user");
+  return rawMessages
+    .map((msg, idx) => {
+      const sender = msg.name || msg.sender || "Unknown";
+      const isOwnMsg = sender === currentUser;
+      const content = msg.mes || msg.content || "";
+      return {
+        id: msg.id || idx,
+        sender,
+        avatar: msg.avatar || sender.substring(0, 2).toUpperCase(),
+        content,
+        timestamp: msg.timestamp || new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        isOwn: isOwnMsg,
+        reactions: msg.reactions,
+        isSticker: msg.isSticker ?? isStickerContent(content),
+      };
+    })
+    .sort((a, b) => (a.id as number) - (b.id as number));
+};
+
+// Helper function to create message from raw data
+export const createMessageFromRaw = (newMsg: RawMessage): Message => {
+  const sender = newMsg.name || newMsg.sender || "Unknown";
+  const content = newMsg.mes || newMsg.content || "";
+  return {
+    id: newMsg.id || Date.now(),
+    sender,
+    avatar: newMsg.avatar || sender.substring(0, 2).toUpperCase(),
+    content,
+    timestamp: newMsg.timestamp || new Date().toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+    isOwn: sender === localStorage.getItem("user"),
+    reactions: newMsg.reactions,
+    isSticker: newMsg.isSticker ?? isStickerContent(content),
+  };
+};
