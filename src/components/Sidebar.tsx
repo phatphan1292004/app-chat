@@ -87,6 +87,48 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       });
     }, 500); // Đợi 500ms để gom batch
   }, []);
+  const currentUsername = (localStorage.getItem("user") || "").toLowerCase();
+
+  const bumpChatToTop = useCallback(
+    (payload: any) => {
+      if (!payload) return;
+
+      const sender = String(payload.name || "");
+      const to = String(payload.to || "");
+      const mes = String(payload.mes || payload.content || "");
+      const isRoom = payload.type === "room";
+      const roomName = isRoom ? to : null;
+      const otherUser = !isRoom
+        ? String(sender).toLowerCase() === currentUsername
+          ? to
+          : sender
+        : null;
+
+      const chatName = isRoom ? roomName! : otherUser!;
+      const chatType = isRoom ? 1 : 0;
+      const now = Date.now();
+
+      setChatList((prev) => {
+        const idx = prev.findIndex(
+          (c) => c.type === chatType && c.name === chatName
+        );
+
+        const updatedItem = {
+          ...(idx >= 0 ? prev[idx] : {}),
+          name: chatName,
+          type: chatType,
+          actionTime: now,
+          lastMessage: mes,
+        };
+
+        const next = [...prev];
+        if (idx >= 0) next.splice(idx, 1);
+        next.unshift(updatedItem);
+        return next;
+      });
+    },
+    [currentUsername]
+  );
 
   useEffect(() => {
     chatSocket.getUserList();
@@ -127,6 +169,16 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
           );
         }
       }
+
+      const event = String((response as any).event);
+
+      if (
+        event === "SEND_CHAT" ||
+        event === "MESSAGE" ||
+        event === "LOCAL_SEND_CHAT"
+      ) {
+        bumpChatToTop((response as any).data);
+      }
     });
 
     // Check online status định kỳ mỗi 60 giây
@@ -142,7 +194,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
         clearTimeout(onlineCheckTimeoutRef.current);
       }
     };
-  }, [batchCheckOnlineStatus]);
+  }, [batchCheckOnlineStatus, bumpChatToTop]);
 
   const handleCreateRoom = () => {
     if (!roomName.trim()) {
@@ -365,7 +417,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
                   avatar={chat.name?.substring(0, 2).toUpperCase() || "??"}
                   name={chat.name || "Unknown"}
                   time={chat.actionTime ? formatTime(chat.actionTime) : ""}
-                  lastMessage={chat.type === 1 ? "Nhóm chat" : "Tin nhắn"}
+                  lastMessage={
+                    (chat as any).lastMessage
+                      ? (chat as any).lastMessage
+                      : chat.type === 1
+                      ? "Nhóm chat"
+                      : "Tin nhắn"
+                  }
                   online={chat.online}
                   type={chat.type}
                 />
