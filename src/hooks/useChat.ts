@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { chatSocket } from "../services/chatSocket";
-import { mapRawMessages, createMessageFromRaw, type RawMessage, isStickerContent } from "../utils";
+import {
+  mapRawMessages,
+  createMessageFromRaw,
+  type RawMessage,
+  isStickerContent,
+} from "../utils";
 import type { SocketResponse } from "../types/socket";
 import type { Message } from "../types/message";
 
@@ -51,9 +56,12 @@ export const useChat = ({
         let roomMessages: RawMessage[] = [];
         if (Array.isArray(response.data)) {
           roomMessages = response.data;
-        } else if (response.data?.chatData && Array.isArray(response.data.chatData)) {
+        } else if (
+          response.data?.chatData &&
+          Array.isArray(response.data.chatData)
+        ) {
           roomMessages = response.data.chatData;
-        } 
+        }
         const mappedMessages = mapRawMessages(roomMessages);
         setMessages(() => mappedMessages);
         log("✅ Loaded", mappedMessages.length, "messages");
@@ -66,7 +74,10 @@ export const useChat = ({
         let peopleMessages: RawMessage[] = [];
         if (Array.isArray(response.data)) {
           peopleMessages = response.data;
-        } else if (response.data?.messages && Array.isArray(response.data.messages)) {
+        } else if (
+          response.data?.messages &&
+          Array.isArray(response.data.messages)
+        ) {
           peopleMessages = response.data.messages;
         }
         const mappedMessages = mapRawMessages(peopleMessages);
@@ -85,7 +96,7 @@ export const useChat = ({
         if (chatType === "room" && currentRoom && newMsg.to !== currentRoom) {
           return; // Not for current room
         }
-        
+
         // For people chat: check if message is from/to current user
         if (chatType === "people" && currentUser) {
           const isFromCurrentUser = newMsg.name === currentUser;
@@ -151,21 +162,18 @@ export const useChat = ({
     [messages, chatType, currentRoom, currentUser]
   );
 
-  const addReaction = useCallback(
-    (messageId: number, emoji: string) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) => {
-          if (msg.id === messageId) {
-            const reactions = msg.reactions || {};
-            reactions[emoji] = (reactions[emoji] || 0) + 1;
-            return { ...msg, reactions };
-          }
-          return msg;
-        })
-      );
-    },
-    []
-  );
+  const addReaction = useCallback((messageId: number, emoji: string) => {
+    setMessages((prevMessages) =>
+      prevMessages.map((msg) => {
+        if (msg.id === messageId) {
+          const reactions = msg.reactions || {};
+          reactions[emoji] = (reactions[emoji] || 0) + 1;
+          return { ...msg, reactions };
+        }
+        return msg;
+      })
+    );
+  }, []);
 
   return {
     messages,
