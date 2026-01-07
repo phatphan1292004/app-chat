@@ -15,7 +15,7 @@ class ChatSocket {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 3000;
-  
+
   // Debounce cho getUserList
   private getUserListTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastGetUserListTime = 0;
@@ -53,11 +53,13 @@ class ChatSocket {
       log("❌ WebSocket closed");
       this.ws = null;
       this.connecting = false;
-      
+
       // Attempt reconnection
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
-        log(`🔄 Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+        log(
+          `🔄 Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`
+        );
         setTimeout(() => this.connect(), this.reconnectDelay);
       }
     };
@@ -81,7 +83,11 @@ class ChatSocket {
     // Ẩn mật khẩu khi log ra console
     const sensitiveEvents = ["LOGIN", "REGISTER", "RE_LOGIN"];
     if (sensitiveEvents.includes(event)) {
-      const safeData = { ...(data as Record<string, unknown>), pass: "***", code: "***" };
+      const safeData = {
+        ...(data as Record<string, unknown>),
+        pass: "***",
+        code: "***",
+      };
       log(`📤 Sending event: ${event}`, safeData);
     } else {
       log(`📤 Sending event: ${event}`, data);
@@ -97,6 +103,11 @@ class ChatSocket {
     }
 
     this.ws.send(payload);
+  }
+
+  private emitLocal(event: string, data: unknown) {
+    const fakeRes = { event, status: "success", data } as any;
+    this.callbacks.forEach((cb) => cb(fakeRes));
   }
 
   // Auth methods
@@ -141,11 +152,11 @@ class ChatSocket {
       log("⏭️ getUserList debounced");
       return;
     }
-    
+
     if (this.getUserListTimeout) {
       clearTimeout(this.getUserListTimeout);
     }
-    
+
     this.getUserListTimeout = setTimeout(() => {
       this.lastGetUserListTime = Date.now();
       this.send("GET_USER_LIST", {});
@@ -154,10 +165,14 @@ class ChatSocket {
 
   // Message methods
   sendRoomMessage(to: string, mes: string) {
+    const user = localStorage.getItem("user") || "You";
+    this.emitLocal("LOCAL_SEND_CHAT", { type: "room", to, mes, name: user });
     this.send("SEND_CHAT", { type: "room", to, mes });
   }
 
   sendPersonalMessage(to: string, mes: string) {
+    const user = localStorage.getItem("user") || "You";
+    this.emitLocal("LOCAL_SEND_CHAT", { type: "people", to, mes, name: user });
     this.send("SEND_CHAT", { type: "people", to, mes });
   }
 
