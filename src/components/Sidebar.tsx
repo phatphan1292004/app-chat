@@ -106,7 +106,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
 
       const chatName = isRoom ? roomName! : otherUser!;
       const chatType = isRoom ? 1 : 0;
-      const now = Date.now();
 
       setChatList((prev) => {
         const idx = prev.findIndex(
@@ -117,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
           ...(idx >= 0 ? prev[idx] : {}),
           name: chatName,
           type: chatType,
-          actionTime: now,
+          actionTime: Date.now().toString(),
           lastMessage: mes,
         };
 
