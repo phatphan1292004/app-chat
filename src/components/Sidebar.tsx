@@ -10,7 +10,24 @@ import { formatTime } from "../utils";
 import type {
   GetUserListSuccess,
   CheckUserExistSuccess,
+  SocketResponse,
 } from "../types/socket";
+
+interface MessagePayload {
+  name?: string;
+  to?: string;
+  mes?: string;
+  content?: string;
+  type?: string | "room" | "people";
+}
+
+interface ChatWithLastMessage {
+  name: string;
+  type: number;
+  actionTime: string;
+  online?: boolean;
+  lastMessage?: string;
+}
 
 interface SidebarProps {
   onChatSelect?: (
@@ -52,6 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   );
   const pendingOnlineChecksRef = useRef<string[]>([]);
   const onlineCheckQueueRef = useRef<string[]>([]); // Queue để track thứ tự check
+  const hasAutoSelectedRef = useRef<boolean>(false); // Track auto-select chat đầu tiên
 
   // Batch check online status - gộp nhiều request thành 1 batch
   const batchCheckOnlineStatus = useCallback((usernames: string[]) => {
@@ -90,7 +108,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const currentUsername = (localStorage.getItem("user") || "").toLowerCase();
 
   const bumpChatToTop = useCallback(
-    (payload: any) => {
+    (payload: MessagePayload) => {
       if (!payload) return;
 
       const sender = String(payload.name || "");
@@ -137,6 +155,28 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       if (response.event === "GET_USER_LIST" && response.status === "success") {
         setChatList(response.data || []);
 
+        // Tự động chọn chat đầu tiên khi reload (chỉ làm 1 lần)
+        if (!hasAutoSelectedRef.current && response.data && response.data.length > 0) {
+          hasAutoSelectedRef.current = true;
+          const firstChat = response.data[0];
+          const chatName = firstChat.name || "";
+          const chatType = firstChat.type === 1 ? "room" : "people";
+          
+          setSelectedChat({ name: chatName, type: firstChat.type });
+          
+          // Nếu là room, join room
+          if (chatType === "room") {
+            chatSocket.joinRoom(chatName);
+          }
+          
+          // Thông báo cho ChatApp component
+          onChatSelect?.(
+            chatType === "room" ? chatName : null,
+            chatType === "people" ? chatName : null,
+            chatType
+          );
+        }
+
         // Check online status cho tất cả people chats cùng lúc (batch)
         const peopleChats = (response.data || []).filter(
           (chat) => chat.type === 0
@@ -169,14 +209,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
         }
       }
 
-      const event = String((response as any).event);
+      const event = response.event;
 
       if (
         event === "SEND_CHAT" ||
-        event === "MESSAGE" ||
-        event === "LOCAL_SEND_CHAT"
+        event === "MESSAGE"
       ) {
-        bumpChatToTop((response as any).data);
+        const messageData = (response as SocketResponse & { data: MessagePayload }).data;
+        bumpChatToTop(messageData);
       }
     });
 
@@ -193,7 +233,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
         clearTimeout(onlineCheckTimeoutRef.current);
       }
     };
-  }, [batchCheckOnlineStatus, bumpChatToTop]);
+  }, [batchCheckOnlineStatus, bumpChatToTop, onChatSelect]);
 
   const handleCreateRoom = () => {
     if (!roomName.trim()) {
@@ -417,11 +457,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
                   name={chat.name || "Unknown"}
                   time={chat.actionTime ? formatTime(chat.actionTime) : ""}
                   lastMessage={
-                    (chat as any).lastMessage
-                      ? (chat as any).lastMessage
-                      : chat.type === 1
-                      ? "Nhóm chat"
-                      : "Tin nhắn"
+                    (chat as ChatWithLastMessage).lastMessage ||
+                    (chat.type === 1 ? "Nhóm chat" : "Tin nhắn")
                   }
                   online={chat.online}
                   type={chat.type}
