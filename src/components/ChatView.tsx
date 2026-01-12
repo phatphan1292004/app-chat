@@ -14,6 +14,7 @@ import MessageItem from "./MessageItem";
 import MenuDropdown from "./MenuDropdown";
 import { useChat } from "../hooks/useChat";
 import { chatSocket } from "../services/chatSocket";
+import { toast } from "react-toastify";
 
 interface ChatViewProps {
   currentRoom?: string | null;
@@ -36,8 +37,6 @@ const ChatView: React.FC<ChatViewProps> = ({
     chatType,
   });
 
-  console.log("ChatView rendered with messages:", messages);
-
   const [inputValue, setInputValue] = useState("");
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -45,6 +44,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [expandedImageId, setExpandedImageId] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(chatType === "people");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileVideoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const hoverHideTimeout = useRef<number | null>(null);
 
@@ -86,7 +86,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Check user online 
+  // Check user online
   useEffect(() => {
     if (chatType === "people" && currentUser) {
       const checkOnline = () => {
@@ -127,6 +127,38 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const handleFileVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Kiểm tra loại file
+      const isVideo = file.type.startsWith("video/");
+      const isDocument =
+        file.type.includes("pdf") ||
+        file.type.includes("document") ||
+        file.type.includes("text") ||
+        file.type.includes("zip") ||
+        file.type.includes("application");
+
+      if (isVideo || isDocument) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const fileData = event.target?.result as string;
+          // Gửi file data cùng với tên file
+          const message = isVideo
+            ? `[VIDEO] ${file.name}\n${fileData}`
+            : `[FILE] ${file.name}\n${fileData}`;
+          sendMessageViaSocket(message);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        toast.error("Vui lòng chọn file video hoặc tài liệu hợp lệ");
+      }
+    }
+    if (fileVideoInputRef.current) {
+      fileVideoInputRef.current.value = "";
     }
   };
 
@@ -199,7 +231,11 @@ const ChatView: React.FC<ChatViewProps> = ({
       <div className="bg-white border-t border-gray-200">
         {/* Hàng trên: các nút chức năng */}
         <div className="flex items-center gap-3 px-4 py-1 border-b border-gray-200">
-          <button className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition">
+          <button
+            onClick={() => fileVideoInputRef.current?.click()}
+            className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
+            title="File/Video"
+          >
             <FaPaperclip size={20} />
           </button>
           <button
@@ -214,6 +250,13 @@ const ChatView: React.FC<ChatViewProps> = ({
             type="file"
             accept="image/*"
             onChange={handleImageUpload}
+            className="hidden"
+          />
+          <input
+            ref={fileVideoInputRef}
+            type="file"
+            accept="video/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+            onChange={handleFileVideoUpload}
             className="hidden"
           />
           <button
