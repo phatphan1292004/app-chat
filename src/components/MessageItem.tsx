@@ -1,4 +1,5 @@
-import { FaReply, FaShare, FaEllipsisV } from "react-icons/fa";
+import { FaReply } from "react-icons/fa";
+import { FaFileAlt, FaFilePdf, FaFileArchive, FaFileWord } from "react-icons/fa";
 import type { Message } from "../types/message.js";
 import { isImageLike } from "../utils";
 
@@ -39,18 +40,33 @@ const MessageItem: React.FC<MessageItemProps> = ({
 	onHoverStart,
 	onHoverEnd,
 	onAddReaction,
-	onOpenMenu,
 	onExpandImage,
 	MenuDropdown,
 }) => {
 	const showAvatar = index === 0 || (index > 0 && message.sender !== undefined);
 
+	// Parse message content for file/video
+	const isVideoMessage = message.content.startsWith('[VIDEO]');
+	const isFileMessage = message.content.startsWith('[FILE]');
+	
+	let fileName = '';
+	let fileData = '';
+	
+	if (isVideoMessage || isFileMessage) {
+		const parts = message.content.split('\n');
+		fileName = parts[0].replace('[VIDEO] ', '').replace('[FILE] ', '');
+		fileData = parts.slice(1).join('\n');
+	}
+
+	const getFileIcon = (name: string) => {
+		if (name.endsWith('.pdf')) return <FaFilePdf className="text-red-500" size={24} />;
+		if (name.endsWith('.doc') || name.endsWith('.docx')) return <FaFileWord className="text-blue-500" size={24} />;
+		if (name.endsWith('.zip') || name.endsWith('.rar')) return <FaFileArchive className="text-yellow-600" size={24} />;
+		return <FaFileAlt className="text-gray-500" size={24} />;
+	};
+
 	return (
-		<div
-			className={`flex ${message.isOwn ? "justify-end" : "justify-start"} relative`}
-			onMouseEnter={() => onHoverStart(message.id)}
-			onMouseLeave={onHoverEnd}
-		>
+		<div className={`flex ${message.isOwn ? "justify-end" : "justify-start"} relative`}>
 			{!message.isOwn && (
 				<div className="w-8 h-8 mr-3 flex-shrink-0">
 					{showAvatar && (
@@ -60,8 +76,53 @@ const MessageItem: React.FC<MessageItemProps> = ({
 					)}
 				</div>
 			)}
-			<div className="relative">
-				{message.isSticker ? (
+			<div className="relative inline-flex">
+				{isVideoMessage ? (
+					// Video display
+					<div className="relative">
+						<div
+							className={`${
+								message.isOwn
+									? "bg-primary-2 border border-primary-2 shadow-md"
+									: "bg-white border border-gray-200 shadow-md"
+							} p-2 rounded-lg max-w-sm`}
+							onMouseEnter={() => onHoverStart(message.id)}
+							onMouseLeave={onHoverEnd}
+						>
+							<video
+								src={fileData}
+								controls
+								className="w-full max-h-60 rounded"
+							/>
+							<p className="text-xs text-gray-600 mt-1">{fileName}</p>
+							<p className="text-[10px] text-gray-400 mt-1 text-right">{message.timestamp}</p>
+						</div>
+					</div>
+				) : isFileMessage ? (
+					// File display
+					<div className="relative">
+						<a
+							href={fileData}
+							download={fileName}
+							className={`block ${
+								message.isOwn
+									? "bg-primary-2 border border-primary-2 shadow-md"
+									: "bg-white border border-gray-200 shadow-md"
+							} px-4 py-3 rounded-lg max-w-xs hover:opacity-80 transition`}
+							onMouseEnter={() => onHoverStart(message.id)}
+							onMouseLeave={onHoverEnd}
+						>
+							<div className="flex items-center gap-3">
+								{getFileIcon(fileName)}
+								<div className="flex-1 min-w-0">
+									<p className="text-sm font-medium text-gray-800 truncate">{fileName}</p>
+									<p className="text-xs text-gray-500">Nhấn để tải xuống</p>
+								</div>
+							</div>
+							<p className="text-[10px] text-gray-400 mt-2 text-right">{message.timestamp}</p>
+						</a>
+					</div>
+				) : message.isSticker ? (
 					// Sticker display (emoji or image)
 					<div className="flex items-center justify-center hover:scale-101 transition cursor-pointer rounded-xl">
 						{isImageLike(message.content) ? (
@@ -81,23 +142,26 @@ const MessageItem: React.FC<MessageItemProps> = ({
 					</div>
 				) : (
 					// Text message display
-					<div
-						className={`max-w-xs ${
-							message.isOwn
-								? "bg-primary-2 text-black border border-primary-2 shadow-md"
-								: "bg-white text-black border border-gray-200 shadow-md"
-						} px-4 py-2 rounded-lg`}
-					>
-						<p className="text-sm">{message.content}</p>
-						<p className="text-[10px] text-gray-400 mt-1 text-right">{message.timestamp}</p>
+					<div className="relative">
+						<div
+							className={`${
+								message.isOwn
+									? "bg-primary-2 text-black border border-primary-2 shadow-md"
+									: "bg-white text-black border border-gray-200 shadow-md"
+							} px-4 py-2 rounded-lg max-w-xs`}
+							onMouseEnter={() => onHoverStart(message.id)}
+							onMouseLeave={onHoverEnd}
+						>
+							<p className="text-sm">{message.content}</p>
+							<p className="text-[10px] text-gray-400 mt-1 text-right">{message.timestamp}</p>
+						</div>
 
-						{/* Reactions Display */}
 						{message.reactions && Object.keys(message.reactions).length > 0 && (
-							<div className="flex gap-1 mt-2 flex-wrap">
+							<div className={`absolute -bottom-2 ${message.isOwn ? "left-0" : "right-0"} flex gap-1 z-10`}>
 								{Object.entries(message.reactions).map(([emoji, count]) => (
 									<span
 										key={emoji}
-										className="bg-gray-200 rounded-full px-2 py-1 text-xs flex items-center gap-1 cursor-pointer hover:bg-gray-300"
+										className="bg-white border border-gray-200 rounded-full px-2 py-0.5 text-xs flex items-center gap-1 cursor-pointer hover:bg-gray-100 shadow-md"
 									>
 										{emoji} {count}
 									</span>
@@ -141,15 +205,6 @@ const MessageItem: React.FC<MessageItemProps> = ({
 							} flex items-center gap-1 bg-white border border-gray-200 rounded-full px-2 py-1 shadow-lg`}
 						>
 							<ActionButton icon={FaReply} title="Trả lời" />
-							<ActionButton icon={FaShare} title="Chuyển tiếp" />
-							<ActionButton
-								icon={FaEllipsisV}
-								title="Menu"
-								onClick={(e) => {
-									e.stopPropagation();
-									onOpenMenu(message.id);
-								}}
-							/>
 						</div>
 
 						{/* Dropdown Menu */}
