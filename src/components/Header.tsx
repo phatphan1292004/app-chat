@@ -14,7 +14,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   };
 
   return (
-    <div className="h-18 w-full bg-white top-0 right-0 sticky flex items-center justify-between px-4 border-b border-gray-200 select-none">
+    <div className="h-18 w-full bg-white top-0 right-0 sticky z-40 flex items-center justify-between px-4 border-b border-gray-200 select-none">
       <div className="flex items-center gap-2">
         <img
           src="/text-app.png"
@@ -32,14 +32,14 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
         </div>
 
         {showMenu && (
-          <div className="absolute right-0 mt-2 w-56 bg-[#222E35] rounded-lg shadow-lg z-100">
+          <div className="absolute right-0 mt-2 w-60 bg-[#222E35] rounded-lg shadow-lg z-50">
             <div className="p-3 border-b border-gray-600">
               <p className="text-white font-semibold">{username}</p>
-              <p className="text-gray-400 text-sm">{username}@hcmuaf.edu.com</p>
+              <p className="text-gray-400 text-sm">hcmuaf.edu.com</p>
             </div>
             <button
               onClick={handleLogoutClick}
-              className="w-full flex items-center gap-3 px-4 py-3 text-red-400  text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 text-red-400 text-left text-base hover:bg-white/5"
             >
               <FaSignOutAlt size={16} />
               Đăng xuất

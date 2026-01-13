@@ -1,5 +1,18 @@
 export const formatTime = (timeStr: string) => {
-  const date = new Date(timeStr);
+  // Handle both timestamp string (milliseconds) and ISO date string
+  let date: Date;
+  if (/^\d+$/.test(timeStr)) {
+    // Pure number string - parse as milliseconds timestamp
+    date = new Date(parseInt(timeStr, 10));
+  } else {
+    date = new Date(timeStr);
+  }
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return "";
+  }
+  
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);

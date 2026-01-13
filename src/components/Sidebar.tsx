@@ -44,6 +44,7 @@ interface SearchResult {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
+  const IS_DEV = import.meta.env.DEV;
   const [openAddFriend, setOpenAddFriend] = useState(false);
   const [openCreateGroup, setOpenCreateGroup] = useState(false);
   const [roomName, setRoomName] = useState("");
@@ -70,6 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
   const pendingOnlineChecksRef = useRef<string[]>([]);
   const onlineCheckQueueRef = useRef<string[]>([]); // Queue để track thứ tự check
   const hasAutoSelectedRef = useRef<boolean>(false); // Track auto-select chat đầu tiên
+  const joinedRoomRef = useRef<string | null>(null); // Tránh join lại cùng 1 room nhiều lần
 
   // Batch check online status - gộp nhiều request thành 1 batch
   const batchCheckOnlineStatus = useCallback((usernames: string[]) => {
@@ -125,6 +127,19 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       const chatName = isRoom ? roomName! : otherUser!;
       const chatType = isRoom ? 1 : 0;
 
+      if (IS_DEV) {
+        console.log("📌 bumpChatToTop:", {
+          sender,
+          to,
+          chatName,
+          chatType,
+          currentUsername,
+          isRoom,
+        });
+      }
+
+      if (!chatName) return;
+
       setChatList((prev) => {
         const idx = prev.findIndex(
           (c) => c.type === chatType && c.name === chatName
@@ -144,7 +159,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
         return next;
       });
     },
-    [currentUsername]
+    [IS_DEV, currentUsername]
   );
 
   useEffect(() => {
@@ -153,12 +168,26 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     // Lắng nghe response
     const unsubscribe = chatSocket.onMessage((response) => {
       if (response.event === "GET_USER_LIST" && response.status === "success") {
-        setChatList(response.data || []);
+        const serverList = response.data || [];
+        
+        // Merge với local list để giữ lại những chat mới chưa có trên server
+        setChatList((prevList) => {
+          // Tìm các chat trong prevList mà không có trong serverList (chat mới thêm local)
+          const localOnlyChats = prevList.filter(
+            (localChat) => !serverList.some(
+              (serverChat) => serverChat.name === localChat.name && serverChat.type === localChat.type
+            )
+          );
+          
+          // Merge: server list + local only chats
+          // Server list được ưu tiên (có thể có lastMessage mới hơn)
+          return [...serverList, ...localOnlyChats];
+        });
 
         // Tự động chọn chat đầu tiên khi reload (chỉ làm 1 lần)
-        if (!hasAutoSelectedRef.current && response.data && response.data.length > 0) {
+        if (!hasAutoSelectedRef.current && serverList && serverList.length > 0) {
           hasAutoSelectedRef.current = true;
-          const firstChat = response.data[0];
+          const firstChat = serverList[0];
           const chatName = firstChat.name || "";
           const chatType = firstChat.type === 1 ? "room" : "people";
           
@@ -166,7 +195,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
           
           // Nếu là room, join room
           if (chatType === "room") {
-            chatSocket.joinRoom(chatName);
+            if (joinedRoomRef.current !== chatName) {
+              joinedRoomRef.current = chatName;
+              chatSocket.joinRoom(chatName);
+            }
           }
           
           // Thông báo cho ChatApp component
@@ -178,7 +210,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
         }
 
         // Check online status cho tất cả people chats cùng lúc (batch)
-        const peopleChats = (response.data || []).filter(
+        const peopleChats = (serverList || []).filter(
           (chat) => chat.type === 0
         );
 
@@ -211,12 +243,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
 
       const event = response.event;
 
+      // Debug: log tất cả events để xác định event nhận tin nhắn
+      if (
+        IS_DEV &&
+        event !== "CHECK_USER_ONLINE" &&
+        event !== "GET_USER_LIST"
+      ) {
+        console.log("🔔 Sidebar received event:", event, response);
+      }
+
       if (
         event === "SEND_CHAT" ||
+        event === "LOCAL_SEND_CHAT" ||
         event === "MESSAGE"
       ) {
         const messageData = (response as SocketResponse & { data: MessagePayload }).data;
         bumpChatToTop(messageData);
+        // Không gọi getUserList() ở đây vì sẽ ghi đè kết quả của bumpChatToTop
       }
     });
 
@@ -269,6 +312,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       return;
     }
 
+    // Nếu đang ở đúng room này rồi thì chỉ cần select
+    if (joinedRoomRef.current === roomToJoin) {
+      setSelectedChat({ name: roomToJoin, type: 1 });
+      onChatSelect?.(roomToJoin, null, "room");
+      setSearchQuery("");
+      return;
+    }
+
     const unsubscribe = chatSocket.onMessage((response) => {
       if (response.event === "JOIN_ROOM") {
         if (response.status === "success") {
@@ -283,6 +334,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       }
     });
 
+    joinedRoomRef.current = roomToJoin;
     chatSocket.joinRoom(roomToJoin);
     chatSocket.getUserList();
     setSearchQuery("");
@@ -296,6 +348,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
 
     // Nếu là room chat, cần join room trước
     if (chatType === "room") {
+      if (joinedRoomRef.current === chatName) {
+        onChatSelect?.(chatName, null, "room");
+        return;
+      }
+
       const unsubscribe = chatSocket.onMessage((response) => {
         if (response.event === "JOIN_ROOM") {
           if (response.status === "success") {
@@ -306,6 +363,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
           unsubscribe();
         }
       });
+      joinedRoomRef.current = chatName;
       chatSocket.joinRoom(chatName);
     }
 
@@ -376,6 +434,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     // Chọn user để chat
     setSelectedChat({ name: username, type: 0 });
     onChatSelect?.(null, username, "people");
+
+    // Refresh danh sách chat để hiển thị user mới
+    chatSocket.getUserList();
 
     // Reset modal state
     setFriendSearchQuery("");

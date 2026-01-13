@@ -13,6 +13,7 @@ export type SocketEvent =
   | "CHECK_USER"
   | "CHECK_USER_EXIST"
   | "SEND_CHAT"
+  | "LOCAL_SEND_CHAT"
   | "CHECK_USER_ONLINE";
 
 export interface LoginSuccess {
@@ -101,6 +102,7 @@ export type SocketSuccessMap = {
   CHECK_USER: CheckUserSuccess;
   CHECK_USER_EXIST: CheckUserExistSuccess;
   SEND_CHAT: SendChatSuccess;
+  LOCAL_SEND_CHAT: SendChatSuccess;
   CHECK_USER_ONLINE: { status: boolean, user: string};
 };
 
