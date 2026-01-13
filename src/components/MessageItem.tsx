@@ -5,6 +5,40 @@ import { isImageLike } from "../utils";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
+// Generate consistent color based on username
+const getUserColor = (username: string): string => {
+	if (!username) return "bg-blue-400";
+	
+	// Simple hash function
+	let hash = 0;
+	for (let i = 0; i < username.length; i++) {
+		hash = username.charCodeAt(i) + ((hash << 5) - hash);
+	}
+	
+	// Array of nice colors for avatars
+	const colors = [
+		"bg-blue-500",
+		"bg-green-500",
+		"bg-purple-500",
+		"bg-pink-500",
+		"bg-indigo-500",
+		"bg-teal-500",
+		"bg-orange-500",
+		"bg-cyan-500",
+		"bg-red-500",
+		"bg-yellow-500",
+		"bg-lime-500",
+		"bg-amber-500",
+		"bg-emerald-500",
+		"bg-violet-500",
+		"bg-fuchsia-500",
+		"bg-rose-500",
+	];
+	
+	const index = Math.abs(hash) % colors.length;
+	return colors[index];
+};
+
 interface MessageItemProps {
 	message: Message;
 	index: number;
@@ -44,6 +78,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
 	MenuDropdown,
 }) => {
 	const showAvatar = index === 0 || (index > 0 && message.sender !== undefined);
+	
+	// Get consistent color for user avatar
+	const avatarColor = getUserColor(message.sender || "");
 
 	// Parse message content for file/video
 	const isVideoMessage = message.content.startsWith('[VIDEO]');
@@ -70,7 +107,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
 			{!message.isOwn && (
 				<div className="w-8 h-8 mr-3 flex-shrink-0">
 					{showAvatar && (
-						<div className="w-8 h-8 rounded-full bg-blue-400 flex items-center justify-center text-white font-bold">
+						<div className={`w-8 h-8 rounded-full ${avatarColor} flex items-center justify-center text-white font-bold text-xs`}>
 							{message.avatar}
 						</div>
 					)}
@@ -89,6 +126,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
 							onMouseEnter={() => onHoverStart(message.id)}
 							onMouseLeave={onHoverEnd}
 						>
+							{!message.isOwn && message.sender && (
+								<p className="text-xs font-semibold text-blue-600 mb-1">{message.sender}</p>
+							)}
 							<video
 								src={fileData}
 								controls
@@ -101,6 +141,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
 				) : isFileMessage ? (
 					// File display
 					<div className="relative">
+						{!message.isOwn && message.sender && (
+							<p className="text-xs font-semibold text-blue-600 mb-1">{message.sender}</p>
+						)}
 						<a
 							href={fileData}
 							download={fileName}
@@ -124,21 +167,26 @@ const MessageItem: React.FC<MessageItemProps> = ({
 					</div>
 				) : message.isSticker ? (
 					// Sticker display (emoji or image)
-					<div className="flex items-center justify-center hover:scale-101 transition cursor-pointer rounded-xl">
-						{isImageLike(message.content) ? (
-							<button
-								onClick={() => onExpandImage(message.id)}
-								className="w-100 h-60 flex items-center justify-center rounded-xl overflow-hidden bg-white hover:shadow-lg transition"
-							>
-								<img
-									src={message.content}
-									alt="uploaded image"
-									className="w-full h-full object-contain"
-								/>
-							</button>
-						) : (
-							<div className="text-[90px] leading-none">{message.content}</div>
+					<div className="relative">
+						{!message.isOwn && message.sender && (
+							<p className="text-xs font-semibold text-blue-600 mb-1">{message.sender}</p>
 						)}
+						<div className="flex items-center justify-center hover:scale-101 transition cursor-pointer rounded-xl">
+							{isImageLike(message.content) ? (
+								<button
+									onClick={() => onExpandImage(message.id)}
+									className="w-100 h-60 flex items-center justify-center rounded-xl overflow-hidden bg-white hover:shadow-lg transition"
+								>
+									<img
+										src={message.content}
+										alt="uploaded image"
+										className="w-full h-full object-contain"
+									/>
+								</button>
+							) : (
+								<div className="text-[90px] leading-none">{message.content}</div>
+							)}
+						</div>
 					</div>
 				) : (
 					// Text message display
@@ -152,6 +200,9 @@ const MessageItem: React.FC<MessageItemProps> = ({
 							onMouseEnter={() => onHoverStart(message.id)}
 							onMouseLeave={onHoverEnd}
 						>
+							{!message.isOwn && message.sender && (
+								<p className="text-xs font-semibold text-gray-400 mb-1">{message.sender}</p>
+							)}
 							<p className="text-sm">{message.content}</p>
 							<p className="text-[10px] text-gray-400 mt-1 text-right">{message.timestamp}</p>
 						</div>
