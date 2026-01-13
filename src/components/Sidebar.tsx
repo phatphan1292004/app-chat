@@ -301,8 +301,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     chatSocket.createRoom(roomName.trim());
     setRoomName("");
     setOpenCreateGroup(false);
-    // Refresh danh sách chat
-    chatSocket.getUserList();
   };
 
   const handleJoinRoom = () => {
@@ -326,7 +324,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
           toast.success("Tham gia phòng thành công!");
           setSelectedChat({ name: roomToJoin, type: 1 });
           onChatSelect?.(roomToJoin, null, "room");
-          chatSocket.getUserList();
         } else if (response.status === "error") {
           toast.error(response.mes?.toString() || "Lỗi khi tham gia phòng");
         }
@@ -336,7 +333,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
 
     joinedRoomRef.current = roomToJoin;
     chatSocket.joinRoom(roomToJoin);
-    chatSocket.getUserList();
     setSearchQuery("");
   };
 
@@ -434,9 +430,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     // Chọn user để chat
     setSelectedChat({ name: username, type: 0 });
     onChatSelect?.(null, username, "people");
-
-    // Refresh danh sách chat để hiển thị user mới
-    chatSocket.getUserList();
 
     // Reset modal state
     setFriendSearchQuery("");
