@@ -1,3 +1,25 @@
+import * as nodeEmoji from 'node-emoji';
+
+// Convert emoji to shortcode for safe string storage (text thông thường vẫn giữ nguyên)
+export const encodeEmojiToShortcode = (text: string): string => {
+  try {
+    return nodeEmoji.unemojify(text);
+  } catch (error) {
+    console.error('Error encoding emoji:', error);
+    return text;
+  }
+};
+
+// Convert shortcode back to emoji for display
+export const decodeEmojiFromShortcode = (text: string): string => {
+  try {
+    return nodeEmoji.emojify(text);
+  } catch (error) {
+    console.error('Error decoding emoji:', error);
+    return text;
+  }
+};
+
 export const formatTime = (timeStr: string) => {
   // Handle both timestamp string (milliseconds) and ISO date string
   let date: Date;
@@ -87,16 +109,35 @@ export const getDateKey = (dateStr: string): string => {
 // Message content helpers
 export const isImageDataUrl = (s: string) => s.startsWith("data:image");
 
-export const isEmojiOnly = (s: string) => {
-  const t = (s || "").trim();
-  if (!t) return false;
-  try {
-    // Broad emoji class; supported in modern runtimes
-    return /^\p{Extended_Pictographic}+$/u.test(t);
-  } catch {
-    // Fallback: simple surrogate pair / common emoji ranges
-    return /^[\u231A-\u231B\u23E9-\u23F3\u23F8-\u23FA\u2600-\u27BF\uD83C-\uDBFF\uDC00-\uDFFF]+$/.test(t);
-  }
+// Encode emoji thành unicode escape để backend lưu được
+export const encodeEmoji = (emoji: string): string => {
+  return Array.from(emoji)
+    .map(char => {
+      const code = char.codePointAt(0);
+      if (!code) return char;
+      // Nếu là emoji (> U+1F000), encode thành &#xHEXCODE;
+      if (code > 0x1F000) {
+        return `&#x${code.toString(16).toUpperCase()};`;
+      }
+      return char;
+    })
+    .join('');
+};
+
+// Decode emoji từ unicode escape
+export const decodeEmoji = (str: string): string => {
+  return str.replace(/&#x([0-9A-F]+);/gi, (hex) => {
+    return String.fromCodePoint(parseInt(hex, 16));
+  });
+};
+
+// Kiểm tra xem có phải là sticker (hiển thị to) hay không
+export const isStickerMarker = (s: string) => s.startsWith("[STICKER]");
+
+// Lấy nội dung sticker (loại bỏ prefix và decode emoji)
+export const getStickerContent = (s: string) => {
+  const content = s.replace("[STICKER]", "");
+  return decodeEmoji(content);
 };
 
 export const isImageHttpUrl = (s: string) => {
@@ -111,8 +152,12 @@ export const isImageHttpUrl = (s: string) => {
   );
 };
 
-export const isStickerContent = (s: string) =>
-  isImageDataUrl(s) || isImageHttpUrl(s) || isEmojiOnly(s);
+export const isStickerContent = (s: string) => {
+  // Kiểm tra nếu có marker [STICKER]
+  if (isStickerMarker(s)) return true;
+  // Kiểm tra nếu là ảnh hoặc URL
+  return isImageDataUrl(s) || isImageHttpUrl(s);
+};
 
 export const isImageLike = (s: string) => isImageDataUrl(s) || isImageHttpUrl(s);
 
@@ -156,7 +201,12 @@ export const mapRawMessages = (rawMessages: RawMessage[]): Message[] => {
     .map((msg, idx) => {
       const sender = msg.name || msg.sender || "Unknown";
       const isOwnMsg = sender === currentUser;
-      const content = msg.mes || msg.content || "";
+      let content = msg.mes || msg.content || "";
+      
+      // Chỉ decode emoji nếu là sticker hoặc có HTML entity
+      if (content.includes("&#x") || content.startsWith("[STICKER]")) {
+        content = decodeEmoji(content);
+      }
       
       // Ưu tiên sử dụng createAt từ API, sau đó mới dùng timestamp
       const originalDate = msg.createAt || msg.timestamp;
@@ -196,7 +246,12 @@ export const mapRawMessages = (rawMessages: RawMessage[]): Message[] => {
 // Helper function to create message from raw data
 export const createMessageFromRaw = (newMsg: RawMessage): Message => {
   const sender = newMsg.name || newMsg.sender || "Unknown";
-  const content = newMsg.mes || newMsg.content || "";
+  let content = newMsg.mes || newMsg.content || "";
+  
+  // Chỉ decode emoji nếu là sticker hoặc có HTML entity
+  if (content.includes("&#x") || content.startsWith("[STICKER]")) {
+    content = decodeEmoji(content);
+  }
   
   // Ưu tiên sử dụng createAt từ API, sau đó mới dùng timestamp
   const originalDate = newMsg.createAt || newMsg.timestamp;
@@ -224,7 +279,7 @@ export const createMessageFromRaw = (newMsg: RawMessage): Message => {
     avatar: newMsg.avatar || sender.substring(0, 2).toUpperCase(),
     content,
     timestamp: timeStr,
-    createAt: originalDate, // Lưu ngày gốc để nhóm
+    createAt: originalDate, 
     isOwn: sender === localStorage.getItem("user"),
     reactions: newMsg.reactions,
     isSticker: newMsg.isSticker ?? isStickerContent(content),

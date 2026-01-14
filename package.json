@@ -14,6 +14,7 @@
     "axios": "^1.13.2",
     "emoji-picker-react": "^4.16.1",
     "giphy-js-sdk-core": "^1.0.6",
+    "node-emoji": "^2.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-icons": "^5.5.0",
