@@ -15,7 +15,8 @@ import MenuDropdown from "./MenuDropdown";
 import { useChat } from "../hooks/useChat";
 import { chatSocket } from "../services/chatSocket";
 import { toast } from "react-toastify";
-import { formatDateSeparator, getDateKey } from "../utils";
+import { formatDateSeparator, getDateKey, encodeEmojiToShortcode } from "../utils";
+import { uploadToCloudinary } from "../services/uploadService";
 
 interface ChatViewProps {
   currentRoom?: string | null;
@@ -46,14 +47,37 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [expandedImageId, setExpandedImageId] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(chatType === "people");
+  const [previewImage, setPreviewImage] = useState<File | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileVideoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const hoverHideTimeout = useRef<number | null>(null);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
+    // Nếu có ảnh preview, gửi ảnh
+    if (previewImage) {
+      try {
+        toast.info("Đang tải ảnh lên...");
+        const imageUrl = await uploadToCloudinary(previewImage, 'image');
+        sendMessageViaSocket(imageUrl);
+        toast.success("Đã gửi ảnh!");
+        
+        // Xóa preview
+        setPreviewImage(null);
+        setPreviewImageUrl(null);
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast.error("Lỗi khi tải ảnh. Vui lòng thử lại!");
+      }
+      return;
+    }
+    
+    // Nếu không có ảnh, gửi text thông thường
     if (inputValue.trim()) {
-      sendMessageViaSocket(inputValue);
+      // Encode emoji thành shortcode để backend lưu được (text thông thường vẫn giữ nguyên)
+      const encodedMessage = encodeEmojiToShortcode(inputValue);
+      sendMessageViaSocket(encodedMessage);
       setInputValue("");
     }
   };
@@ -65,6 +89,39 @@ const ChatView: React.FC<ChatViewProps> = ({
 
   const handleEmojiSelect = (emoji: string) => {
     setInputValue(inputValue + emoji);
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    // Kiểm tra xem có ảnh trong clipboard không
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault(); // Ngăn paste text mặc định
+        
+        const file = items[i].getAsFile();
+        if (!file) continue;
+
+        // Kiểm tra kích thước
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error("Ảnh quá lớn! Vui lòng chọn ảnh nhỏ hơn 10MB");
+          return;
+        }
+
+        // Tạo preview URL
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const imageData = event.target?.result as string;
+          setPreviewImageUrl(imageData);
+        };
+        reader.readAsDataURL(file);
+        
+        // Lưu file để upload sau khi nhấn gửi
+        setPreviewImage(file);
+        return; // Chỉ xử lý ảnh đầu tiên
+      }
+    }
   };
 
   const handleHoverStart = (messageId: number) => {
@@ -118,22 +175,44 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   }, [chatType, currentUser]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target?.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imageData = event.target?.result as string;
-        sendMessageViaSocket(imageData);
-      };
-      reader.readAsDataURL(file);
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Ảnh quá lớn! Vui lòng chọn ảnh nhỏ hơn 10MB");
+        return;
+      }
+
+      try {
+        toast.info("Đang tải ảnh lên...");
+        
+        // Upload lên Cloudinary
+        const imageUrl = await uploadToCloudinary(file, 'image');
+        
+        // Gửi URL thay vì base64
+        sendMessageViaSocket(imageUrl);
+        toast.success("Đã gửi ảnh!");
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast.error("Lỗi khi tải ảnh. Vui lòng thử lại!");
+        
+        // Fallback: Gửi base64 nếu upload thất bại (chỉ cho ảnh nhỏ)
+        if (file.size < 500 * 1024) { // < 500KB
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const imageData = event.target?.result as string;
+            sendMessageViaSocket(imageData);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  const handleFileVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Kiểm tra loại file
@@ -146,16 +225,42 @@ const ChatView: React.FC<ChatViewProps> = ({
         file.type.includes("application");
 
       if (isVideo || isDocument) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const fileData = event.target?.result as string;
-          // Gửi file data cùng với tên file
+        // Kiểm tra kích thước (giới hạn 50MB)
+        if (file.size > 50 * 1024 * 1024) {
+          toast.error("File quá lớn! Vui lòng chọn file nhỏ hơn 50MB");
+          return;
+        }
+
+        try {
+          toast.info("Đang tải file lên...");
+          
+          // Upload lên Cloudinary
+          const resourceType = isVideo ? 'video' : 'raw';
+          const fileUrl = await uploadToCloudinary(file, resourceType);
+          
+          // Gửi URL với tên file
           const message = isVideo
-            ? `[VIDEO] ${file.name}\n${fileData}`
-            : `[FILE] ${file.name}\n${fileData}`;
+            ? `[VIDEO] ${file.name}\n${fileUrl}`
+            : `[FILE] ${file.name}\n${fileUrl}`;
           sendMessageViaSocket(message);
-        };
-        reader.readAsDataURL(file);
+          toast.success("Đã gửi file!");
+        } catch (error) {
+          console.error('Upload error:', error);
+          toast.error("Lỗi khi tải file. Vui lòng thử lại!");
+          
+          // Fallback: Gửi base64 nếu upload thất bại (chỉ cho file nhỏ)
+          if (file.size < 1024 * 1024) { // < 1MB
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const fileData = event.target?.result as string;
+              const message = isVideo
+                ? `[VIDEO] ${file.name}\n${fileData}`
+                : `[FILE] ${file.name}\n${fileData}`;
+              sendMessageViaSocket(message);
+            };
+            reader.readAsDataURL(file);
+          }
+        }
       } else {
         toast.error("Vui lòng chọn file video hoặc tài liệu hợp lệ");
       }
@@ -287,12 +392,37 @@ const ChatView: React.FC<ChatViewProps> = ({
             <FaSmile size={20} />
           </button>
         </div>
+        
+        {/* Preview ảnh */}
+        {previewImageUrl && (
+          <div className="px-4 py-2">
+            <div className="relative inline-block">
+              <img 
+                src={previewImageUrl} 
+                alt="Preview" 
+                className="max-w-xs max-h-40 rounded-lg border-2 border-primary-1"
+              />
+              <button
+                onClick={() => {
+                  setPreviewImage(null);
+                  setPreviewImageUrl(null);
+                }}
+                className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+                title="Hủy"
+              >
+                <AiOutlineClose size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+        
         {/* Hàng dưới: input và gửi */}
         <div className="flex items-center gap-3 py-2 pl-2 pr-4">
           <input
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
+            onPaste={handlePaste}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();

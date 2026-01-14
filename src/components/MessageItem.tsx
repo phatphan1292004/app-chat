@@ -1,7 +1,7 @@
 import { FaReply } from "react-icons/fa";
 import { FaFileAlt, FaFilePdf, FaFileArchive, FaFileWord } from "react-icons/fa";
 import type { Message } from "../types/message.js";
-import { isImageLike } from "../utils";
+import { isImageLike, isStickerMarker, getStickerContent, decodeEmojiFromShortcode } from "../utils";
 
 const EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "😡"];
 
@@ -103,7 +103,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
 	};
 
 	return (
-		<div className={`flex ${message.isOwn ? "justify-end" : "justify-start"} relative`}>
+		<div className={`flex ${message.isOwn ? "justify-end" : "justify-start"} relative mb-2`}>
 			{!message.isOwn && (
 				<div className="w-8 h-8 mr-3 flex-shrink-0">
 					{showAvatar && (
@@ -122,7 +122,7 @@ const MessageItem: React.FC<MessageItemProps> = ({
 								message.isOwn
 									? "bg-primary-2 border border-primary-2 shadow-md"
 									: "bg-white border border-gray-200 shadow-md"
-							} p-2 rounded-lg max-w-sm`}
+							} p-2 rounded-lg max-w-lg`}
 							onMouseEnter={() => onHoverStart(message.id)}
 							onMouseLeave={onHoverEnd}
 						>
@@ -183,27 +183,31 @@ const MessageItem: React.FC<MessageItemProps> = ({
 										className="w-full h-full object-contain"
 									/>
 								</button>
+							) : isStickerMarker(message.content) ? (
+								// Sticker emoji - hiển thị to
+								<div className="text-[90px] leading-none">{getStickerContent(message.content)}</div>
 							) : (
+								// Ảnh sticker khác
 								<div className="text-[90px] leading-none">{message.content}</div>
 							)}
 						</div>
 					</div>
 				) : (
-					// Text message display
+					// Text message display (bao gồm emoji inline nhỏ)
 					<div className="relative">
 						<div
 							className={`${
 								message.isOwn
 									? "bg-primary-2 text-black border border-primary-2 shadow-md"
 									: "bg-white text-black border border-gray-200 shadow-md"
-							} px-4 py-2 rounded-lg max-w-xs`}
+							} px-4 py-2 rounded-lg max-w-xs break-words`}
 							onMouseEnter={() => onHoverStart(message.id)}
 							onMouseLeave={onHoverEnd}
 						>
 							{!message.isOwn && message.sender && (
-								<p className="text-xs font-semibold text-gray-400 mb-1">{message.sender}</p>
+								<p className="text-xs font-semibold text-gray-400 mb-1 break-words">{message.sender}</p>
 							)}
-							<p className="text-sm">{message.content}</p>
+						<p className="text-sm break-words overflow-wrap-anywhere">{decodeEmojiFromShortcode(message.content)}</p>
 							<p className="text-[10px] text-gray-400 mt-1 text-right">{message.timestamp}</p>
 						</div>
 

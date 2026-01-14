@@ -4,6 +4,7 @@ import type { EmojiClickData } from "emoji-picker-react";
 import giphyService, { type GiphySticker } from "../services/giphyService";
 import { AiOutlineSearch } from "react-icons/ai";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { encodeEmoji } from "../utils";
 
 interface EmojiPickerModalProps {
   isOpen: boolean;
@@ -46,9 +47,11 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
   };
 
   const handleStickerClick = (sticker: GiphySticker) => {
-    // Send sticker URL or emoji
-    const stickerContent = sticker.url || sticker.emoji || "😊";
-    onEmojiSelect(stickerContent);
+    // Encode emoji để backend lưu được
+    const stickerContent = sticker.emoji || sticker.url || "😊";
+    const encodedEmoji = encodeEmoji(stickerContent);
+    // Thêm prefix [STICKER] để utils nhận biết và hiển thị to
+    onEmojiSelect(`[STICKER]${encodedEmoji}`);
     onClose();
   };
 
