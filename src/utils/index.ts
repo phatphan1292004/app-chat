@@ -126,11 +126,12 @@ export const encodeEmoji = (emoji: string): string => {
 
 // Decode emoji từ unicode escape
 export const decodeEmoji = (str: string): string => {
-  return str.replace(/&#x([0-9A-F]+);/gi, (hex) => {
-    return String.fromCodePoint(parseInt(hex, 16));
+  return str.replace(/&#x([0-9A-F]+);/gi, (_match, hex) => {
+    const codePoint = parseInt(hex, 16);
+    if (isNaN(codePoint)) return _match; // Nếu parse lỗi, giữ nguyên
+    return String.fromCodePoint(codePoint);
   });
 };
-
 // Kiểm tra xem có phải là sticker (hiển thị to) hay không
 export const isStickerMarker = (s: string) => s.startsWith("[STICKER]");
 

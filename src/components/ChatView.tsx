@@ -55,7 +55,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   const hoverHideTimeout = useRef<number | null>(null);
 
   const handleSendMessage = async () => {
-    // Nếu có ảnh preview, gửi ảnh
     if (previewImage) {
       try {
         toast.info("Đang tải ảnh lên...");
@@ -63,7 +62,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         sendMessageViaSocket(imageUrl);
         toast.success("Đã gửi ảnh!");
         
-        // Xóa preview
         setPreviewImage(null);
         setPreviewImageUrl(null);
       } catch (error) {
@@ -73,9 +71,7 @@ const ChatView: React.FC<ChatViewProps> = ({
       return;
     }
     
-    // Nếu không có ảnh, gửi text thông thường
     if (inputValue.trim()) {
-      // Encode emoji thành shortcode để backend lưu được (text thông thường vẫn giữ nguyên)
       const encodedMessage = encodeEmojiToShortcode(inputValue);
       sendMessageViaSocket(encodedMessage);
       setInputValue("");
@@ -95,21 +91,18 @@ const ChatView: React.FC<ChatViewProps> = ({
     const items = e.clipboardData?.items;
     if (!items) return;
 
-    // Kiểm tra xem có ảnh trong clipboard không
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
-        e.preventDefault(); // Ngăn paste text mặc định
+        e.preventDefault(); 
         
         const file = items[i].getAsFile();
         if (!file) continue;
 
-        // Kiểm tra kích thước
         if (file.size > 10 * 1024 * 1024) {
           toast.error("Ảnh quá lớn! Vui lòng chọn ảnh nhỏ hơn 10MB");
           return;
         }
 
-        // Tạo preview URL
         const reader = new FileReader();
         reader.onload = (event) => {
           const imageData = event.target?.result as string;
@@ -117,9 +110,8 @@ const ChatView: React.FC<ChatViewProps> = ({
         };
         reader.readAsDataURL(file);
         
-        // Lưu file để upload sau khi nhấn gửi
         setPreviewImage(file);
-        return; // Chỉ xử lý ảnh đầu tiên
+        return; 
       }
     }
   };
@@ -146,7 +138,6 @@ const ChatView: React.FC<ChatViewProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Check user online
   useEffect(() => {
     if (chatType === "people" && currentUser) {
       const checkOnline = () => {
@@ -186,17 +177,14 @@ const ChatView: React.FC<ChatViewProps> = ({
       try {
         toast.info("Đang tải ảnh lên...");
         
-        // Upload lên Cloudinary
         const imageUrl = await uploadToCloudinary(file, 'image');
         
-        // Gửi URL thay vì base64
         sendMessageViaSocket(imageUrl);
         toast.success("Đã gửi ảnh!");
       } catch (error) {
         console.error('Upload error:', error);
         toast.error("Lỗi khi tải ảnh. Vui lòng thử lại!");
         
-        // Fallback: Gửi base64 nếu upload thất bại (chỉ cho ảnh nhỏ)
         if (file.size < 500 * 1024) { // < 500KB
           const reader = new FileReader();
           reader.onload = (event) => {
@@ -215,7 +203,6 @@ const ChatView: React.FC<ChatViewProps> = ({
   const handleFileVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Kiểm tra loại file
       const isVideo = file.type.startsWith("video/");
       const isDocument =
         file.type.includes("pdf") ||
@@ -225,7 +212,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         file.type.includes("application");
 
       if (isVideo || isDocument) {
-        // Kiểm tra kích thước (giới hạn 50MB)
         if (file.size > 50 * 1024 * 1024) {
           toast.error("File quá lớn! Vui lòng chọn file nhỏ hơn 50MB");
           return;
@@ -234,11 +220,9 @@ const ChatView: React.FC<ChatViewProps> = ({
         try {
           toast.info("Đang tải file lên...");
           
-          // Upload lên Cloudinary
           const resourceType = isVideo ? 'video' : 'raw';
           const fileUrl = await uploadToCloudinary(file, resourceType);
           
-          // Gửi URL với tên file
           const message = isVideo
             ? `[VIDEO] ${file.name}\n${fileUrl}`
             : `[FILE] ${file.name}\n${fileUrl}`;
@@ -248,7 +232,6 @@ const ChatView: React.FC<ChatViewProps> = ({
           console.error('Upload error:', error);
           toast.error("Lỗi khi tải file. Vui lòng thử lại!");
           
-          // Fallback: Gửi base64 nếu upload thất bại (chỉ cho file nhỏ)
           if (file.size < 1024 * 1024) { // < 1MB
             const reader = new FileReader();
             reader.onload = (event) => {
@@ -318,7 +301,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         ) : (
           <>
             {messages.map((message, index) => {
-              // Check if we need to show a date separator
               const currentDateKey = message.createAt ? getDateKey(message.createAt) : "";
               const prevMessage = index > 0 ? messages[index - 1] : null;
               const prevDateKey = prevMessage?.createAt ? getDateKey(prevMessage.createAt) : "";
