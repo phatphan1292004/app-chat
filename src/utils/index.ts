@@ -126,7 +126,7 @@ export const encodeEmoji = (emoji: string): string => {
 
 // Decode emoji từ unicode escape
 export const decodeEmoji = (str: string): string => {
-  return str.replace(/&#x([0-9A-F]+);/gi, (match, hex) => {
+  return str.replace(/&#x([0-9A-F]+);/gi, (hex) => {
     return String.fromCodePoint(parseInt(hex, 16));
   });
 };
