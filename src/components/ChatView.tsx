@@ -15,6 +15,7 @@ import MenuDropdown from "./MenuDropdown";
 import { useChat } from "../hooks/useChat";
 import { chatSocket } from "../services/chatSocket";
 import { toast } from "react-toastify";
+import { formatDateSeparator, getDateKey } from "../utils";
 
 interface ChatViewProps {
   currentRoom?: string | null;
@@ -36,6 +37,8 @@ const ChatView: React.FC<ChatViewProps> = ({
     currentUser,
     chatType,
   });
+
+  console.log("ChatView rendered with messages:", messages);
 
   const [inputValue, setInputValue] = useState("");
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
@@ -208,21 +211,39 @@ const ChatView: React.FC<ChatViewProps> = ({
             Chưa có tin nhắn
           </div>
         ) : (
-          messages.map((message) => (
-            <MessageItem
-              key={message.id}
-              message={message}
-              index={messages.indexOf(message)}
-              isHovered={hoveredMessageId === message.id}
-              openMenuId={openMenuId}
-              onHoverStart={handleHoverStart}
-              onHoverEnd={handleHoverEnd}
-              onAddReaction={handleAddReaction}
-              onOpenMenu={(id) => setOpenMenuId(openMenuId === id ? null : id)}
-              onExpandImage={setExpandedImageId}
-              MenuDropdown={MenuDropdown}
-            />
-          ))
+          <>
+            {messages.map((message, index) => {
+              // Check if we need to show a date separator
+              const currentDateKey = message.createAt ? getDateKey(message.createAt) : "";
+              const prevMessage = index > 0 ? messages[index - 1] : null;
+              const prevDateKey = prevMessage?.createAt ? getDateKey(prevMessage.createAt) : "";
+              const showDateSeparator = currentDateKey && currentDateKey !== prevDateKey;
+
+              return (
+                <div key={message.id}>
+                  {showDateSeparator && (
+                    <div className="flex items-center justify-center my-4">
+                      <div className="bg-gray-200 text-gray-500 text-xs font-medium px-3 py-1 rounded-full">
+                        {formatDateSeparator(message.createAt!)}
+                      </div>
+                    </div>
+                  )}
+                  <MessageItem
+                    message={message}
+                    index={index}
+                    isHovered={hoveredMessageId === message.id}
+                    openMenuId={openMenuId}
+                    onHoverStart={handleHoverStart}
+                    onHoverEnd={handleHoverEnd}
+                    onAddReaction={handleAddReaction}
+                    onOpenMenu={(id) => setOpenMenuId(openMenuId === id ? null : id)}
+                    onExpandImage={setExpandedImageId}
+                    MenuDropdown={MenuDropdown}
+                  />
+                </div>
+              );
+            })}
+          </>
         )}
         <div ref={messagesEndRef} className="h-1" />
       </div>
