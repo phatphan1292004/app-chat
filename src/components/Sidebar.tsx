@@ -27,6 +27,8 @@ interface ChatWithLastMessage {
   actionTime: string;
   online?: boolean;
   lastMessage?: string;
+  lastSender?: string;
+  lastIsOwn?: boolean;
 }
 
 interface SidebarProps {
@@ -116,50 +118,52 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       const sender = String(payload.name || "");
       const to = String(payload.to || "");
       const mes = String(payload.mes || payload.content || "");
-      const isRoom = payload.type === "room";
-      const roomName = isRoom ? to : null;
-      const otherUser = !isRoom
-        ? String(sender).toLowerCase() === currentUsername
-          ? to
-          : sender
-        : null;
 
-      const chatName = isRoom ? roomName! : otherUser!;
+      // ✅ hỗ trợ type: "room"/"people" hoặc 1/0 hoặc "1"/"0"
+      const t = payload.type as any;
+      const isRoom = t === "room" || t === 1 || t === "1" || t === true; // true nếu server gửi boolean
+
+      // room: chatName = to (tên phòng)
+      // people: chatName = người còn lại
+      const chatName = isRoom
+        ? to
+        : sender.toLowerCase() === currentUsername
+        ? to
+        : sender;
+
       const chatType = isRoom ? 1 : 0;
 
-      if (IS_DEV) {
-        console.log("📌 bumpChatToTop:", {
-          sender,
-          to,
-          chatName,
-          chatType,
-          currentUsername,
-          isRoom,
-        });
+      if (!chatName) {
+        // debug nhanh nếu bạn muốn
+        // console.log("bumpChatToTop missing chatName:", payload);
+        return;
       }
 
-      if (!chatName) return;
+      const lastIsOwn = sender.toLowerCase() === currentUsername;
+      const lastSender = lastIsOwn ? "Bạn" : sender;
 
       setChatList((prev) => {
         const idx = prev.findIndex(
           (c) => c.type === chatType && c.name === chatName
         );
 
-        const updatedItem = {
-          ...(idx >= 0 ? prev[idx] : {}),
+        const updatedItem: ChatWithLastMessage = {
+          ...(idx >= 0 ? (prev[idx] as any) : {}),
           name: chatName,
           type: chatType,
           actionTime: Date.now().toString(),
           lastMessage: mes,
+          lastSender,
+          lastIsOwn,
         };
 
         const next = [...prev];
         if (idx >= 0) next.splice(idx, 1);
         next.unshift(updatedItem);
-        return next;
+        return next as any;
       });
     },
-    [IS_DEV, currentUsername]
+    [currentUsername]
   );
 
   useEffect(() => {
@@ -169,30 +173,47 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
     const unsubscribe = chatSocket.onMessage((response) => {
       if (response.event === "GET_USER_LIST" && response.status === "success") {
         const serverList = response.data || [];
-        
+
         // Merge với local list để giữ lại những chat mới chưa có trên server
         setChatList((prevList) => {
-          // Tìm các chat trong prevList mà không có trong serverList (chat mới thêm local)
-          const localOnlyChats = prevList.filter(
-            (localChat) => !serverList.some(
-              (serverChat) => serverChat.name === localChat.name && serverChat.type === localChat.type
-            )
+          const merged = (serverList || []).map((serverChat: any) => {
+            const local = prevList.find(
+              (x: any) =>
+                x.name === serverChat.name && x.type === serverChat.type
+            ) as any;
+
+            return {
+              ...serverChat,
+              lastMessage: serverChat.lastMessage ?? local?.lastMessage,
+              lastSender: local?.lastSender,
+              lastIsOwn: local?.lastIsOwn,
+            };
+          });
+
+          const localOnly = prevList.filter(
+            (localChat: any) =>
+              !merged.some(
+                (s: any) =>
+                  s.name === localChat.name && s.type === localChat.type
+              )
           );
-          
-          // Merge: server list + local only chats
-          // Server list được ưu tiên (có thể có lastMessage mới hơn)
-          return [...serverList, ...localOnlyChats];
+
+          return [...merged, ...localOnly] as any;
         });
 
         // Tự động chọn chat đầu tiên khi reload (chỉ làm 1 lần)
-        if (!hasAutoSelectedRef.current && serverList && serverList.length > 0) {
+        if (
+          !hasAutoSelectedRef.current &&
+          serverList &&
+          serverList.length > 0
+        ) {
           hasAutoSelectedRef.current = true;
           const firstChat = serverList[0];
           const chatName = firstChat.name || "";
           const chatType = firstChat.type === 1 ? "room" : "people";
-          
+
           setSelectedChat({ name: chatName, type: firstChat.type });
-          
+
           // Nếu là room, join room
           if (chatType === "room") {
             if (joinedRoomRef.current !== chatName) {
@@ -200,7 +221,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
               chatSocket.joinRoom(chatName);
             }
           }
-          
+
           // Thông báo cho ChatApp component
           onChatSelect?.(
             chatType === "room" ? chatName : null,
@@ -257,7 +278,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
         event === "LOCAL_SEND_CHAT" ||
         event === "MESSAGE"
       ) {
-        const messageData = (response as SocketResponse & { data: MessagePayload }).data;
+        const messageData = (
+          response as SocketResponse & { data: MessagePayload }
+        ).data;
         bumpChatToTop(messageData);
         // Không gọi getUserList() ở đây vì sẽ ghi đè kết quả của bumpChatToTop
       }
@@ -493,6 +516,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
       <div className="flex-1 overflow-y-auto">
         {chatList.length > 0 ? (
           chatList.map((chat, idx) => {
+            const chatAny = chat as any;
             const isSelected =
               selectedChat?.name === chat.name &&
               selectedChat?.type === chat.type;
@@ -514,6 +538,8 @@ const Sidebar: React.FC<SidebarProps> = ({ onChatSelect }) => {
                     (chat as ChatWithLastMessage).lastMessage ||
                     (chat.type === 1 ? "Nhóm chat" : "Tin nhắn")
                   }
+                  lastSender={chatAny.lastSender}
+                  lastIsOwn={chatAny.lastIsOwn}
                   online={chat.online}
                   type={chat.type}
                 />
