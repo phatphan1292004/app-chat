@@ -15,14 +15,71 @@ import MenuDropdown from "./MenuDropdown";
 import { useChat } from "../hooks/useChat";
 import { chatSocket } from "../services/chatSocket";
 import { toast } from "react-toastify";
-import { formatDateSeparator, getDateKey, encodeEmojiToShortcode } from "../utils";
+import {
+  formatDateSeparator,
+  getDateKey,
+  encodeEmojiToShortcode,
+} from "../utils";
 import { uploadToCloudinary } from "../services/uploadService";
+import type { Message } from "../types/message.js";
+
+// ✅ cần các util này để preview reply đúng (nếu bạn chưa export thì export thêm)
+import {
+  decodeEmojiFromShortcode,
+  isImageLike,
+  isStickerMarker,
+  getStickerContent,
+} from "../utils";
 
 interface ChatViewProps {
   currentRoom?: string | null;
   currentUser?: string | null;
   chatType?: "room" | "people";
 }
+
+type ReplyTo = {
+  id: number;
+  sender: string;
+  previewText: string;
+};
+
+const MAX_REPLY_PREVIEW = 140;
+
+// ✅ tạo preview cho thanh "Trả lời ..."
+const makeReplyPreview = (msg: Message): string => {
+  const raw = msg.content || "";
+
+  // file/video marker
+  if (raw.startsWith("[VIDEO]")) return "🎬 Video";
+  if (raw.startsWith("[FILE]")) return "📎 Tệp";
+
+  // sticker
+  if (msg.isSticker) {
+    if (isStickerMarker(raw)) return getStickerContent(raw) || "😊 Sticker";
+    if (isImageLike(raw)) return "🖼️ Sticker ảnh";
+    return "😊 Sticker";
+  }
+
+  // ảnh
+  if (isImageLike(raw)) return "🖼️ Ảnh";
+
+  // text
+  const decoded = decodeEmojiFromShortcode(raw);
+  return (
+    decoded.replace(/\s+/g, " ").trim().slice(0, MAX_REPLY_PREVIEW) ||
+    "Tin nhắn"
+  );
+};
+
+const buildReplyPayload = (reply: ReplyTo, actualContent: string) => {
+  // Format gửi: [REPLY]{json}\n<content>
+  const meta = {
+    id: reply.id,
+    sender: reply.sender,
+    text: reply.previewText,
+  };
+  return `[REPLY]${JSON.stringify(meta)}\n${actualContent}`;
+};
 
 const ChatView: React.FC<ChatViewProps> = ({
   currentRoom = null,
@@ -39,42 +96,59 @@ const ChatView: React.FC<ChatViewProps> = ({
     chatType,
   });
 
-  console.log("ChatView rendered with messages:", messages);
-
   const [inputValue, setInputValue] = useState("");
   const [hoveredMessageId, setHoveredMessageId] = useState<number | null>(null);
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [expandedImageId, setExpandedImageId] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(chatType === "people");
+
   const [previewImage, setPreviewImage] = useState<File | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  // ✅ reply state
+  const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileVideoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const hoverHideTimeout = useRef<number | null>(null);
 
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const handleSendMessage = async () => {
+    // 1) gửi ảnh preview (paste)
     if (previewImage) {
       try {
         toast.info("Đang tải ảnh lên...");
-        const imageUrl = await uploadToCloudinary(previewImage, 'image');
-        sendMessageViaSocket(imageUrl);
+        const imageUrl = await uploadToCloudinary(previewImage, "image");
+
+        const payload = replyTo
+          ? buildReplyPayload(replyTo, imageUrl)
+          : imageUrl;
+        sendMessageViaSocket(payload);
+
         toast.success("Đã gửi ảnh!");
-        
         setPreviewImage(null);
         setPreviewImageUrl(null);
+        setReplyTo(null);
       } catch (error) {
-        console.error('Upload error:', error);
+        console.error("Upload error:", error);
         toast.error("Lỗi khi tải ảnh. Vui lòng thử lại!");
       }
       return;
     }
-    
+
+    // 2) gửi text
     if (inputValue.trim()) {
       const encodedMessage = encodeEmojiToShortcode(inputValue);
-      sendMessageViaSocket(encodedMessage);
+      const payload = replyTo
+        ? buildReplyPayload(replyTo, encodedMessage)
+        : encodedMessage;
+
+      sendMessageViaSocket(payload);
       setInputValue("");
+      setReplyTo(null);
     }
   };
 
@@ -84,17 +158,18 @@ const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const handleEmojiSelect = (emoji: string) => {
-    setInputValue(inputValue + emoji);
+    setInputValue((prev) => prev + emoji);
   };
 
+  // ✅ paste ảnh -> show preview
   const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        e.preventDefault(); 
-        
+      if (items[i].type.indexOf("image") !== -1) {
+        e.preventDefault();
+
         const file = items[i].getAsFile();
         if (!file) continue;
 
@@ -104,14 +179,12 @@ const ChatView: React.FC<ChatViewProps> = ({
         }
 
         const reader = new FileReader();
-        reader.onload = (event) => {
-          const imageData = event.target?.result as string;
-          setPreviewImageUrl(imageData);
-        };
+        reader.onload = (event) =>
+          setPreviewImageUrl(event.target?.result as string);
         reader.readAsDataURL(file);
-        
+
         setPreviewImage(file);
-        return; 
+        return;
       }
     }
   };
@@ -125,9 +198,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   };
 
   const handleHoverEnd = () => {
-    if (hoverHideTimeout.current) {
-      clearTimeout(hoverHideTimeout.current);
-    }
+    if (hoverHideTimeout.current) clearTimeout(hoverHideTimeout.current);
     hoverHideTimeout.current = window.setTimeout(() => {
       setHoveredMessageId(null);
       hoverHideTimeout.current = null;
@@ -155,9 +226,7 @@ const ChatView: React.FC<ChatViewProps> = ({
 
       checkOnline();
 
-      const interval = setInterval(() => {
-        checkOnline();
-      }, 60000);
+      const interval = setInterval(() => checkOnline(), 60000);
 
       return () => {
         clearInterval(interval);
@@ -166,6 +235,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   }, [chatType, currentUser]);
 
+  // ✅ chọn ảnh từ file
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target?.files?.[0];
     if (file) {
@@ -176,88 +246,80 @@ const ChatView: React.FC<ChatViewProps> = ({
 
       try {
         toast.info("Đang tải ảnh lên...");
-        
-        const imageUrl = await uploadToCloudinary(file, 'image');
-        
-        sendMessageViaSocket(imageUrl);
+        const imageUrl = await uploadToCloudinary(file, "image");
+
+        const payload = replyTo
+          ? buildReplyPayload(replyTo, imageUrl)
+          : imageUrl;
+        sendMessageViaSocket(payload);
+
         toast.success("Đã gửi ảnh!");
+        setReplyTo(null);
       } catch (error) {
-        console.error('Upload error:', error);
+        console.error("Upload error:", error);
         toast.error("Lỗi khi tải ảnh. Vui lòng thử lại!");
-        
-        if (file.size < 500 * 1024) { // < 500KB
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const imageData = event.target?.result as string;
-            sendMessageViaSocket(imageData);
-          };
-          reader.readAsDataURL(file);
-        }
       }
     }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleFileVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // ✅ file/video
+  const handleFileVideoUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const isVideo = file.type.startsWith("video/");
-      const isDocument =
-        file.type.includes("pdf") ||
-        file.type.includes("document") ||
-        file.type.includes("text") ||
-        file.type.includes("zip") ||
-        file.type.includes("application");
-
-      if (isVideo || isDocument) {
-        if (file.size > 50 * 1024 * 1024) {
-          toast.error("File quá lớn! Vui lòng chọn file nhỏ hơn 50MB");
-          return;
-        }
-
-        try {
-          toast.info("Đang tải file lên...");
-          
-          const resourceType = isVideo ? 'video' : 'raw';
-          const fileUrl = await uploadToCloudinary(file, resourceType);
-          
-          const message = isVideo
-            ? `[VIDEO] ${file.name}\n${fileUrl}`
-            : `[FILE] ${file.name}\n${fileUrl}`;
-          sendMessageViaSocket(message);
-          toast.success("Đã gửi file!");
-        } catch (error) {
-          console.error('Upload error:', error);
-          toast.error("Lỗi khi tải file. Vui lòng thử lại!");
-          
-          if (file.size < 1024 * 1024) { // < 1MB
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const fileData = event.target?.result as string;
-              const message = isVideo
-                ? `[VIDEO] ${file.name}\n${fileData}`
-                : `[FILE] ${file.name}\n${fileData}`;
-              sendMessageViaSocket(message);
-            };
-            reader.readAsDataURL(file);
-          }
-        }
-      } else {
-        toast.error("Vui lòng chọn file video hoặc tài liệu hợp lệ");
-      }
+    if (!file) {
+      if (fileVideoInputRef.current) fileVideoInputRef.current.value = "";
+      return;
     }
-    if (fileVideoInputRef.current) {
-      fileVideoInputRef.current.value = "";
+
+    const isVideo = file.type.startsWith("video/");
+    const isDocument =
+      file.type.includes("pdf") ||
+      file.type.includes("document") ||
+      file.type.includes("text") ||
+      file.type.includes("zip") ||
+      file.type.includes("application");
+
+    if (!isVideo && !isDocument) {
+      toast.error("Vui lòng chọn file video hoặc tài liệu hợp lệ");
+      if (fileVideoInputRef.current) fileVideoInputRef.current.value = "";
+      return;
     }
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error("File quá lớn! Vui lòng chọn file nhỏ hơn 50MB");
+      if (fileVideoInputRef.current) fileVideoInputRef.current.value = "";
+      return;
+    }
+
+    try {
+      toast.info("Đang tải file lên...");
+      const resourceType = isVideo ? "video" : "raw";
+      const fileUrl = await uploadToCloudinary(file, resourceType);
+
+      const message = isVideo
+        ? `[VIDEO] ${file.name}\n${fileUrl}`
+        : `[FILE] ${file.name}\n${fileUrl}`;
+
+      const payload = replyTo ? buildReplyPayload(replyTo, message) : message;
+      sendMessageViaSocket(payload);
+
+      toast.success("Đã gửi file!");
+      setReplyTo(null);
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Lỗi khi tải file. Vui lòng thử lại!");
+    }
+
+    if (fileVideoInputRef.current) fileVideoInputRef.current.value = "";
   };
 
   const displayName = currentRoom || currentUser || "Chat";
 
   return (
     <div className="flex flex-col h-full">
-      {/* Chat Header */}
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center justify-between">
         <div className="flex items-center">
           <div className="relative w-12 h-12 mr-3">
@@ -292,7 +354,7 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-4 space-y-1 bg-gray-100">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full text-gray-400">
@@ -301,10 +363,15 @@ const ChatView: React.FC<ChatViewProps> = ({
         ) : (
           <>
             {messages.map((message, index) => {
-              const currentDateKey = message.createAt ? getDateKey(message.createAt) : "";
+              const currentDateKey = message.createAt
+                ? getDateKey(message.createAt)
+                : "";
               const prevMessage = index > 0 ? messages[index - 1] : null;
-              const prevDateKey = prevMessage?.createAt ? getDateKey(prevMessage.createAt) : "";
-              const showDateSeparator = currentDateKey && currentDateKey !== prevDateKey;
+              const prevDateKey = prevMessage?.createAt
+                ? getDateKey(prevMessage.createAt)
+                : "";
+              const showDateSeparator =
+                currentDateKey && currentDateKey !== prevDateKey;
 
               return (
                 <div key={message.id}>
@@ -315,6 +382,7 @@ const ChatView: React.FC<ChatViewProps> = ({
                       </div>
                     </div>
                   )}
+
                   <MessageItem
                     message={message}
                     index={index}
@@ -323,8 +391,18 @@ const ChatView: React.FC<ChatViewProps> = ({
                     onHoverStart={handleHoverStart}
                     onHoverEnd={handleHoverEnd}
                     onAddReaction={handleAddReaction}
-                    onOpenMenu={(id) => setOpenMenuId(openMenuId === id ? null : id)}
+                    onOpenMenu={(id) =>
+                      setOpenMenuId(openMenuId === id ? null : id)
+                    }
                     onExpandImage={setExpandedImageId}
+                    onReply={(msg) => {
+                      setReplyTo({
+                        id: msg.id,
+                        sender: msg.sender,
+                        previewText: makeReplyPreview(msg),
+                      });
+                      setTimeout(() => inputRef.current?.focus(), 0);
+                    }}
                     MenuDropdown={MenuDropdown}
                   />
                 </div>
@@ -335,9 +413,9 @@ const ChatView: React.FC<ChatViewProps> = ({
         <div ref={messagesEndRef} className="h-1" />
       </div>
 
-      {/* Input Area */}
+      {/* Input */}
       <div className="bg-white border-t border-gray-200">
-        {/* Hàng trên: các nút chức năng */}
+        {/* toolbar */}
         <div className="flex items-center gap-3 px-4 py-1 border-b border-gray-200">
           <button
             onClick={() => fileVideoInputRef.current?.click()}
@@ -346,6 +424,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           >
             <FaPaperclip size={20} />
           </button>
+
           <button
             onClick={() => fileInputRef.current?.click()}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
@@ -353,6 +432,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           >
             <FaImage size={20} />
           </button>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -367,21 +447,49 @@ const ChatView: React.FC<ChatViewProps> = ({
             onChange={handleFileVideoUpload}
             className="hidden"
           />
+
           <button
             onClick={() => setShowEmojiPicker(true)}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-600 transition"
+            title="Emoji"
           >
             <FaSmile size={20} />
           </button>
         </div>
-        
-        {/* Preview ảnh */}
+
+        {/* ✅ Reply bar */}
+        {replyTo && (
+          <div className="px-4 py-2 border-b border-gray-200 bg-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500">
+                  Trả lời{" "}
+                  <span className="font-semibold text-gray-700">
+                    {replyTo.sender}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-700 truncate max-w-[520px]">
+                  {replyTo.previewText}
+                </p>
+              </div>
+              <button
+                onClick={() => setReplyTo(null)}
+                className="text-gray-500 hover:text-gray-700 p-1"
+                title="Hủy trả lời"
+              >
+                <AiOutlineClose size={18} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Preview paste image */}
         {previewImageUrl && (
           <div className="px-4 py-2">
             <div className="relative inline-block">
-              <img 
-                src={previewImageUrl} 
-                alt="Preview" 
+              <img
+                src={previewImageUrl}
+                alt="Preview"
                 className="max-w-xs max-h-40 rounded-lg border-2 border-primary-1"
               />
               <button
@@ -397,10 +505,11 @@ const ChatView: React.FC<ChatViewProps> = ({
             </div>
           </div>
         )}
-        
-        {/* Hàng dưới: input và gửi */}
+
+        {/* input + send */}
         <div className="flex items-center gap-3 py-2 pl-2 pr-4">
           <input
+            ref={inputRef}
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -417,19 +526,19 @@ const ChatView: React.FC<ChatViewProps> = ({
           <button
             onClick={handleSendMessage}
             className="text-primary-1 p-1 hover:bg-primary-1/10 rounded-sm transition flex items-center justify-center"
+            title="Gửi"
           >
             <IoMdSend size={22} />
           </button>
         </div>
 
-        {/* Emoji Picker Modal */}
         <EmojiPickerModal
           isOpen={showEmojiPicker}
           onClose={() => setShowEmojiPicker(false)}
           onEmojiSelect={handleEmojiSelect}
         />
 
-        {/* Image Viewer Modal */}
+        {/* Image viewer */}
         {expandedImageId !== null && (
           <div
             className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"

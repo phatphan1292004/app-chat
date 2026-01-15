@@ -24,7 +24,7 @@ const ChatItem: React.FC<ChatItemProps> = ({
         <div className="w-12 h-12 rounded-full bg-primary-1 flex items-center justify-center text-white font-bold">
           {type === 1 ? <MdGroups size={24} /> : avatar}
         </div>
-        {type === 0 &&  (
+        {type === 0 && (
           <div
             className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${
               online ? "bg-green-500" : "bg-gray-400"
