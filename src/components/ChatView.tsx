@@ -23,7 +23,7 @@ import {
 import { uploadToCloudinary } from "../services/uploadService";
 import type { Message } from "../types/message.js";
 
-// ✅ cần các util này để preview reply đúng (nếu bạn chưa export thì export thêm)
+// cần các util này để preview reply đúng (nếu bạn chưa export thì export thêm)
 import {
   decodeEmojiFromShortcode,
   isImageLike,
@@ -45,9 +45,9 @@ type ReplyTo = {
 
 const MAX_REPLY_PREVIEW = 140;
 
-// ✅ tạo preview cho thanh "Trả lời ..."
+// tạo preview cho thanh "Trả lời ..."
 const makeReplyPreview = (msg: Message): string => {
-  const raw = msg.content || "";
+  const raw = unwrapReplyContent(msg.content || "");
 
   // file/video marker
   if (raw.startsWith("[VIDEO]")) return "🎬 Video";
@@ -69,6 +69,22 @@ const makeReplyPreview = (msg: Message): string => {
     decoded.replace(/\s+/g, " ").trim().slice(0, MAX_REPLY_PREVIEW) ||
     "Tin nhắn"
   );
+};
+
+const unwrapReplyContent = (raw: string) => {
+  if (!raw) return "";
+
+  if (!raw.startsWith("[REPLY]")) return raw;
+
+  // hỗ trợ newline thật và "\\n"
+  const nl = raw.indexOf("\n");
+  if (nl !== -1) return raw.slice(nl + 1);
+
+  const slashN = raw.indexOf("\\n");
+  if (slashN !== -1) return raw.slice(slashN + 2);
+
+  // payload lỗi format thì trả nguyên
+  return raw;
 };
 
 const buildReplyPayload = (reply: ReplyTo, actualContent: string) => {
@@ -106,7 +122,7 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [previewImage, setPreviewImage] = useState<File | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  // ✅ reply state
+  // reply state
   const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -161,7 +177,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     setInputValue((prev) => prev + emoji);
   };
 
-  // ✅ paste ảnh -> show preview
+  // paste ảnh -> show preview
   const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -235,7 +251,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     }
   }, [chatType, currentUser]);
 
-  // ✅ chọn ảnh từ file
+  // chọn ảnh từ file
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target?.files?.[0];
     if (file) {
@@ -263,7 +279,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // ✅ file/video
+  // file/video
   const handleFileVideoUpload = async (
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -457,7 +473,7 @@ const ChatView: React.FC<ChatViewProps> = ({
           </button>
         </div>
 
-        {/* ✅ Reply bar */}
+        {/* Reply bar */}
         {replyTo && (
           <div className="px-4 py-2 border-b border-gray-200 bg-white">
             <div className="flex items-start justify-between gap-3">
