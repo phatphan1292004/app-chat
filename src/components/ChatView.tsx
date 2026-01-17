@@ -225,6 +225,7 @@ const ChatView: React.FC<ChatViewProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  //Check User Online
   useEffect(() => {
     if (chatType === "people" && currentUser) {
       const checkOnline = () => {
